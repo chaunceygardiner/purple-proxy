@@ -54,7 +54,7 @@ while(defined($_ = <STDIN>)) {
         $counts{$SKIPPED_SENSOR_READINGS} += 1;
     } elsif (/host:port *:/ ||
              /conf_file *:/ ||
-             /request_server *:/ ||
+             /server_port *:/ ||
              /db_file *:/ ||
              /timeout_secs *:/ ||
              /pollfreq_secs *:/ ||
