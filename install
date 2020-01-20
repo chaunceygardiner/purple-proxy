@@ -1,0 +1,71 @@
+#!/bin/sh
+
+# Copyright (c) 2020 John A Kline
+# See the file LICENSE for your full rights.
+
+# For testing, set etc to /tmp/etc
+etc="/etc"
+#etc="/tmp/etc"
+
+if [ "$etc" = "/tmp/etc" ]; then
+  # This is a test run.  Create the /etc directories needed.
+  mkdir -p /tmp/etc/init.d 2>/dev/null
+  mkdir    /tmp/etc/logrotate.d 2>/dev/null
+  mkdir    /tmp/etc/rsyslog.d 2>/dev/null
+  mkdir -p /tmp/etc/logwatch/conf/services 2>/dev/null
+  mkdir    /tmp/etc/logwatch/conf/logfiles 2>/dev/null
+  mkdir -p /tmp/etc/logwatch/scripts/services 2>/dev/null
+fi
+
+if [ $# -ne 4 ]; then
+  echo "Usage: $0 <src-files> <target-dir> <archive-interval-seconds> <purpleair-dns-name-or-ip>"
+  exit 1
+fi
+
+src_dir="$1"
+target_dir="$2"
+archive_interval_seconds="$3"
+sensor="$4"
+
+mkdir -p "$target_dir"/archive 2> /dev/null
+mkdir -p "$target_dir"/bin/monitor 2> /dev/null
+mkdir    "$target_dir"/bin/server 2> /dev/null
+
+cp ${src_dir}/etc/logrotate.d/purple-proxy ${etc}/logrotate.d/
+cp ${src_dir}/etc/logwatch/conf/services/purple-proxy.conf ${etc}/logwatch/conf/services/
+cp ${src_dir}/etc/logwatch/conf/logfiles/purple-proxy.conf ${etc}/logwatch/conf/logfiles/
+cp ${src_dir}/etc/logwatch/scripts/services/purple-proxy ${etc}/logwatch/scripts/services/
+cp ${src_dir}/etc/rsyslog.d/purple-proxy.conf ${etc}/rsyslog.d/
+
+# cp and fixup /etc/init.d/purple-proxy
+cat ${src_dir}/etc/init.d/purple-proxy | sed "s%/home/purpleproxy%$target_dir%g" > /${etc}/init.d/purple-proxy
+
+# cp bin files
+cp ${src_dir}/home/purpleproxy/bin/server/__init__.py ${target_dir}/bin/server/
+cp ${src_dir}/home/purpleproxy/bin/server/server.py ${target_dir}/bin/server/
+cp ${src_dir}/home/purpleproxy/bin/purpleproxyd ${target_dir}/bin/
+cp ${src_dir}/home/purpleproxy/bin/monitor/__init__.py ${target_dir}/bin/monitor/
+cp ${src_dir}/home/purpleproxy/bin/monitor/monitor.py ${target_dir}/bin/monitor/
+
+# copy and fix up the wrapper
+cat ${src_dir}/home/purpleproxy/bin/purpleproxy-wrapper.sh | sed "s%/home/purpleproxy%$target_dir%g" > ${target_dir}/bin/purpleproxy-wrapper.sh
+
+echo "# PurpleProxy configuration file" > ${target_dir}/purpleproxy.conf
+echo "debug = 0" >> ${target_dir}/purpleproxy.conf
+echo "log-to-stdout = 0" >> ${target_dir}/purpleproxy.conf
+echo "service-name = purple-proxy" >> ${target_dir}/purpleproxy.conf
+echo "hostname = $sensor" >> ${target_dir}/purpleproxy.conf
+echo "port = 80" >> ${target_dir}/purpleproxy.conf
+echo "timeout-secs = 15" >> ${target_dir}/purpleproxy.conf
+echo "server-port = 8000" >> ${target_dir}/purpleproxy.conf
+echo "poll-freq-secs = 30" >> ${target_dir}/purpleproxy.conf
+echo "archive-interval-secs = $archive_interval_seconds" >> ${target_dir}/purpleproxy.conf
+echo "database-file = ${target_dir}/archive/purpleproxy.sdb" >> ${target_dir}/purpleproxy.conf
+
+# If for real...
+if [ "$etc" = "/etc" ]; then
+    service rsyslog restart
+    service logrotate restart
+    systemctl enable /etc/init.d/purple-proxy
+    /etc/init.d/purple-proxy start
+fi
