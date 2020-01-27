@@ -11,6 +11,7 @@ import monitor.monitor
 
 from enum import Enum
 from dataclasses import dataclass, field
+from json import dumps
 from typing import Any, Dict, IO, Iterator, List, Optional, Tuple
 
 VERSION = '1'
@@ -34,7 +35,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         request =  Handler.parse_requestline(self.requestline)
         json = ''
         if request.request_type == RequestType.GET_VERSION:
-            self.respond_success('{version: %s}' % VERSION)
+            self.respond_success(dumps({'version': VERSION}))
         elif request.request_type == RequestType.FETCH_CURRENT_RECORD:
             self.respond_success(monitor.monitor.Database(db_file).fetch_current_reading_as_json())
         elif request.request_type == RequestType.FETCH_ARCHIVE_RECORDS:
