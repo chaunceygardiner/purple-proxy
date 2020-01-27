@@ -13,11 +13,13 @@ from enum import Enum
 from dataclasses import dataclass, field
 from typing import Any, Dict, IO, Iterator, List, Optional, Tuple
 
+VERSION = '1'
 
 class RequestType(Enum):
     ERROR                 = 0
-    FETCH_CURRENT_RECORD  = 1
-    FETCH_ARCHIVE_RECORDS = 2
+    GET_VERSION           = 1
+    FETCH_CURRENT_RECORD  = 2
+    FETCH_ARCHIVE_RECORDS = 3
 
 @dataclass
 class Request:
@@ -31,7 +33,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         request =  Handler.parse_requestline(self.requestline)
         json = ''
-        if request.request_type == RequestType.FETCH_CURRENT_RECORD:
+        if request.request_type == RequestType.GET_VERSION:
+            self.respond_success('{version: %s}' % VERSION)
+        elif request.request_type == RequestType.FETCH_CURRENT_RECORD:
             self.respond_success(monitor.monitor.Database(db_file).fetch_current_reading_as_json())
         elif request.request_type == RequestType.FETCH_ARCHIVE_RECORDS:
             self.respond_success(monitor.monitor.Database(db_file).fetch_archive_readings_as_json(request.since_ts))
@@ -75,9 +79,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
         request_type = RequestType.ERROR
         since_ts: Optional[int] = None
         error: Optional[str] = None
-        # /json is treated as /fetch-current-record so that
-        # the monitor can mimick the device itself
-        if cmd == '/fetch-current-record' or cmd == '/json':
+        if cmd == '/get-version':
+            request_type = RequestType.GET_VERSION
+        elif cmd == '/fetch-current-record' or cmd == '/json':
+            # /json is treated as /fetch-current-record so that
+            # the monitor can mimick the device itself
             request_type = RequestType.FETCH_CURRENT_RECORD
         elif cmd == '/fetch-archive-records':
             request_type = RequestType.FETCH_ARCHIVE_RECORDS
