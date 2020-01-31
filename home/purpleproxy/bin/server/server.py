@@ -17,15 +17,17 @@ from typing import Any, Dict, IO, Iterator, List, Optional, Tuple
 VERSION = '1'
 
 class RequestType(Enum):
-    ERROR                 = 0
-    GET_VERSION           = 1
-    FETCH_CURRENT_RECORD  = 2
-    FETCH_ARCHIVE_RECORDS = 3
+    ERROR                  = 0
+    GET_VERSION            = 1
+    GET_EARLIEST_TIMESTAMP = 2
+    FETCH_CURRENT_RECORD   = 3
+    FETCH_ARCHIVE_RECORDS  = 4
 
 @dataclass
 class Request:
     request_type: RequestType
     since_ts    : Optional[int]
+    max_ts      : Optional[int]
     error       : Optional[str]
     request     : str
 
@@ -36,10 +38,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
         json = ''
         if request.request_type == RequestType.GET_VERSION:
             self.respond_success(dumps({'version': VERSION}))
+        elif request.request_type == RequestType.GET_EARLIEST_TIMESTAMP:
+            self.respond_success(monitor.monitor.Database(db_file).get_earliest_timestamp_as_json())
         elif request.request_type == RequestType.FETCH_CURRENT_RECORD:
             self.respond_success(monitor.monitor.Database(db_file).fetch_current_reading_as_json())
         elif request.request_type == RequestType.FETCH_ARCHIVE_RECORDS:
-            self.respond_success(monitor.monitor.Database(db_file).fetch_archive_readings_as_json(request.since_ts))
+            self.respond_success(monitor.monitor.Database(db_file).fetch_archive_readings_as_json(request.since_ts, request.max_ts))
         else:
             self.respond_error(request.error)
 
@@ -79,9 +83,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
             cmd = request
         request_type = RequestType.ERROR
         since_ts: Optional[int] = None
+        max_ts: Optional[int] = None
         error: Optional[str] = None
         if cmd == '/get-version':
             request_type = RequestType.GET_VERSION
+        elif cmd == '/get-earliest-timestamp':
+            request_type = RequestType.GET_EARLIEST_TIMESTAMP
         elif cmd == '/fetch-current-record' or cmd == '/json':
             # /json is treated as /fetch-current-record so that
             # the monitor can mimick the device itself
@@ -101,14 +108,21 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     except Exception as e:
                         request_type = RequestType.ERROR
                         error =  "The since_ts argument must be an integer, found: '%s'." % args_dict['since_ts']
+                    if 'max_ts' in args_dict:
+                        try:
+                            max_ts = int(args_dict['max_ts'])
+                        except Exception as e:
+                            request_type = RequestType.ERROR
+                            error =  "The max_ts argument must be an integer, found: '%s'." % args_dict['max_ts']
                 else:
                     request_type = RequestType.ERROR
                     error =  'fetch-archive-records requires since_ts argument'
         return Request(
             request_type = request_type,
             since_ts     = since_ts,
+            max_ts       = max_ts,
             error        = error,
-            request = request)
+            request      = request)
 
 db_file: Optional[str] = None
 

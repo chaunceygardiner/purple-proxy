@@ -17,8 +17,10 @@ purple-proxy works in the backround querying the PurpleAir sensor and answers qu
 * `/json` Identical to quering the device directly (but also includes the averages in the json).
    (Provided so that clients that don't know about the proxy can still use the proxy and get averaged readings).
 * `/get-version' Returns the version of the proxy command set (currently, '1').
+* `/get-earliest-timestamp' Returns the the timestamp of the oldest record in the database.
 * `/fetch-current-record` Same as `/json`.
-* `/fetch-archive-records?since_ts=<timestamp` Fetches all archive records since the timestamp (i.e., seconds since the epoch).
+* `/fetch-archive-records?since_ts=<timestamp>` Fetches all archive records >= <timestamp> (i.e., seconds since the epoch).
+* `/fetch-archive-records?since_ts=<since_ts>,max_ts=<max_ts>` Fetches all archive records > <since_ts> and <= <max_ts>.
 
 ### Json Specification
 See the PurpleAir spec for the json.  In addition to that spec, the proxy adds `_avg` fields for devices with two sensors.

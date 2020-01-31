@@ -218,26 +218,43 @@ class Database(object):
             return Service.convert_to_json(reading)
         return '{}'
 
-    def fetch_archive_readings(self, since_ts: int = 0) -> Iterator[Reading]:
-        return self.fetch_readings(RecordType.ARCHIVE, since_ts)
+    def get_earliest_timestamp_as_json(self) -> str:
+        select: str = ('SELECT timestamp FROM Reading WHERE record_type = %d'
+            ' ORDER BY timestamp LIMIT 1') % RecordType.ARCHIVE
+        log.debug('get-earliest-timestamp: select: %s' % select)
+        resp = {}
+        with sqlite3.connect(self.db_file, timeout=5) as conn:
+            cursor = conn.cursor()
+            for row in cursor.execute(select):
+                log.debug('get-earliest-timestamp: returned %s' % row[0])
+                resp['timestamp'] = row[0]
+                break
+        log.debug('get-earliest-timestamp: returning: %s' % dumps(resp))
+        return dumps(resp)
 
-    def fetch_archive_readings_as_json(self, since_ts: int = 0) -> str:
+    def fetch_archive_readings(self, since_ts: int = 0, max_ts: Optional[int] = None) -> Iterator[Reading]:
+        return self.fetch_readings(RecordType.ARCHIVE, since_ts, max_ts)
+
+    def fetch_archive_readings_as_json(self, since_ts: int = 0, max_ts: Optional[int] = None) -> str:
         contents = ''
-        for reading in self.fetch_archive_readings(since_ts):
+        for reading in self.fetch_archive_readings(since_ts, max_ts):
             if contents != '':
                 contents += ','
             contents += Service.convert_to_json(reading)
         return '[  %s ]' % contents
 
-    def fetch_readings(self, record_type: int, since_ts: int = 0) -> Iterator[Reading]:
+    def fetch_readings(self, record_type: int, since_ts: int = 0, max_ts: Optional[int] = None) -> Iterator[Reading]:
         select: str = ('SELECT Reading.timestamp, current_temp_f,'
             ' current_humidity, current_dewpoint_f, pressure, sensor,'
             ' pm1_0_cf_1, pm1_0_atm, p_0_3_um, pm2_5_cf_1, pm2_5_atm, p_0_5_um,'
             ' pm10_0_cf_1, pm10_0_atm, pm2_5_aqi, p25aqi_red, p25aqi_green,'
             ' p25aqi_blue FROM Reading, Sensor WHERE Reading.record_type = %d'
             ' AND Sensor.record_type = %d AND Reading.timestamp = Sensor.timestamp'
-            ' AND Reading.timestamp > %d ORDER BY Reading.timestamp, Sensor.record_type;') % (
-            record_type, record_type, since_ts)
+            ' AND Reading.timestamp > %d') % (record_type, record_type, since_ts)
+        if max_ts is not None:
+            select = '%s AND Reading.timestamp <= %d' % (select, max_ts)
+        select += ' ORDER BY Reading.timestamp, Sensor.record_type;'
+        log.debug('fetch_readings: select: %s' % select)
         with sqlite3.connect(self.db_file, timeout=5) as conn:
             cursor = conn.cursor()
             reading = None
