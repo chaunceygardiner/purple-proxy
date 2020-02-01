@@ -232,18 +232,18 @@ class Database(object):
         log.debug('get-earliest-timestamp: returning: %s' % dumps(resp))
         return dumps(resp)
 
-    def fetch_archive_readings(self, since_ts: int = 0, max_ts: Optional[int] = None) -> Iterator[Reading]:
-        return self.fetch_readings(RecordType.ARCHIVE, since_ts, max_ts)
+    def fetch_archive_readings(self, since_ts: int = 0, max_ts: Optional[int] = None, limit: Optional[int] = None) -> Iterator[Reading]:
+        return self.fetch_readings(RecordType.ARCHIVE, since_ts, max_ts, limit)
 
-    def fetch_archive_readings_as_json(self, since_ts: int = 0, max_ts: Optional[int] = None) -> str:
+    def fetch_archive_readings_as_json(self, since_ts: int = 0, max_ts: Optional[int] = None, limit: Optional[int] = None) -> str:
         contents = ''
-        for reading in self.fetch_archive_readings(since_ts, max_ts):
+        for reading in self.fetch_archive_readings(since_ts, max_ts, limit):
             if contents != '':
                 contents += ','
             contents += Service.convert_to_json(reading)
         return '[  %s ]' % contents
 
-    def fetch_readings(self, record_type: int, since_ts: int = 0, max_ts: Optional[int] = None) -> Iterator[Reading]:
+    def fetch_readings(self, record_type: int, since_ts: int = 0, max_ts: Optional[int] = None, limit: Optional[int] = None) -> Iterator[Reading]:
         select: str = ('SELECT Reading.timestamp, current_temp_f,'
             ' current_humidity, current_dewpoint_f, pressure, sensor,'
             ' pm1_0_cf_1, pm1_0_atm, p_0_3_um, pm2_5_cf_1, pm2_5_atm, p_0_5_um,'
@@ -253,8 +253,11 @@ class Database(object):
             ' AND Reading.timestamp > %d') % (record_type, record_type, since_ts)
         if max_ts is not None:
             select = '%s AND Reading.timestamp <= %d' % (select, max_ts)
-        select += ' ORDER BY Reading.timestamp, Sensor.record_type;'
-        log.debug('fetch_readings: select: %s' % select)
+        select += ' ORDER BY Reading.timestamp, Sensor.record_type'
+        if limit is not None:
+            select = '%s LIMIT %d' % (select, limit)
+        select += ';'
+        log.info('fetch_readings: select: %s' % select)
         with sqlite3.connect(self.db_file, timeout=5) as conn:
             cursor = conn.cursor()
             reading = None

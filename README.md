@@ -21,6 +21,8 @@ purple-proxy works in the backround querying the PurpleAir sensor and answers qu
 * `/fetch-current-record` Same as `/json`.
 * `/fetch-archive-records?since_ts=<timestamp>` Fetches all archive records >= <timestamp> (i.e., seconds since the epoch).
 * `/fetch-archive-records?since_ts=<since_ts>,max_ts=<max_ts>` Fetches all archive records > <since_ts> and <= <max_ts>.
+* `/fetch-archive-records?since_ts=<since_ts>,limit=<count>` Fetches up to <count> records  > <since_ts>.
+* `/fetch-archive-records?since_ts=<since_ts>,max_ts=<max_ts>,limit=<count>` Fetches up to <count> archive records > <since_ts> and <= <max_ts>.
 
 ### Json Specification
 See the PurpleAir spec for the json.  In addition to that spec, the proxy adds `_avg` fields for devices with two sensors.

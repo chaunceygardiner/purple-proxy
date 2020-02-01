@@ -5,6 +5,7 @@
 
 import http.server
 import socketserver
+import syslog
 import threading
 
 import monitor.monitor
@@ -28,6 +29,7 @@ class Request:
     request_type: RequestType
     since_ts    : Optional[int]
     max_ts      : Optional[int]
+    limit       : Optional[int]
     error       : Optional[str]
     request     : str
 
@@ -43,7 +45,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         elif request.request_type == RequestType.FETCH_CURRENT_RECORD:
             self.respond_success(monitor.monitor.Database(db_file).fetch_current_reading_as_json())
         elif request.request_type == RequestType.FETCH_ARCHIVE_RECORDS:
-            self.respond_success(monitor.monitor.Database(db_file).fetch_archive_readings_as_json(request.since_ts, request.max_ts))
+            self.respond_success(monitor.monitor.Database(db_file).fetch_archive_readings_as_json(request.since_ts, request.max_ts, request.limit))
         else:
             self.respond_error(request.error)
 
@@ -84,6 +86,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         request_type = RequestType.ERROR
         since_ts: Optional[int] = None
         max_ts: Optional[int] = None
+        limit: Optional[int] = None
         error: Optional[str] = None
         if cmd == '/get-version':
             request_type = RequestType.GET_VERSION
@@ -114,6 +117,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
                         except Exception as e:
                             request_type = RequestType.ERROR
                             error =  "The max_ts argument must be an integer, found: '%s'." % args_dict['max_ts']
+                    if 'limit' in args_dict:
+                        try:
+                            limit = int(args_dict['limit'])
+                        except Exception as e:
+                            request_type = RequestType.ERROR
+                            error =  "The limit argument must be an integer, found: '%s'." % args_dict['limit']
                 else:
                     request_type = RequestType.ERROR
                     error =  'fetch-archive-records requires since_ts argument'
@@ -121,6 +130,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             request_type = request_type,
             since_ts     = since_ts,
             max_ts       = max_ts,
+            limit        = limit,
             error        = error,
             request      = request)
 
