@@ -257,7 +257,7 @@ class Database(object):
         if limit is not None:
             select = '%s LIMIT %d' % (select, limit)
         select += ';'
-        log.info('fetch_readings: select: %s' % select)
+        log.debug('fetch_readings: select: %s' % select)
         with sqlite3.connect(self.db_file, timeout=5) as conn:
             cursor = conn.cursor()
             reading = None
