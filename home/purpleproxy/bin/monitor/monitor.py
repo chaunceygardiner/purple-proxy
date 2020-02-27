@@ -357,9 +357,7 @@ class Service(object):
     def collect_data(hostname: str, port:int, timeout_secs:int) -> Reading:
         # fetch data
         response: requests.Response = requests.get(url="http://%s:%s/json" % (hostname, port), timeout=timeout_secs)
-        if not response:
-            # raise error if status is invalid
-            response.raise_for_status()
+        response.raise_for_status()
         return Service.parse_response(response)
 
     @staticmethod
