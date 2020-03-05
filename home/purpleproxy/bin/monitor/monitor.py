@@ -133,7 +133,6 @@ class Database(object):
     def create(db_file): # -> Database:
         if db_file != ':memory:' and os.path.exists(db_file):
             raise DatabaseAlreadyExists("Database %s already exists" % db_file)
-
         if db_file != ':memory:':
             # Create parent directories
             dir = os.path.dirname(db_file)
@@ -499,6 +498,48 @@ class Service(object):
     def utc_now() -> datetime:
         return datetime.now(tz=tz.gettz('UTC'))
 
+    @staticmethod
+    def is_sensor_sane(sensor_data: SensorData) -> bool:
+        if not isinstance(sensor_data.pm1_0_cf_1, float):
+            return False
+        if not isinstance(sensor_data.pm1_0_atm, float):
+            return False
+        if not isinstance(sensor_data.p_0_3_um, float):
+            return False
+        if not isinstance(sensor_data.pm2_5_cf_1, float):
+            return False
+        if not isinstance(sensor_data.pm2_5_atm, float):
+            return False
+        if not isinstance(sensor_data.p_0_5_um, float):
+            return False
+        if not isinstance(sensor_data.pm10_0_cf_1, float):
+            return False
+        if not isinstance(sensor_data.pm10_0_atm, float):
+            return False
+        if not isinstance(sensor_data.pm2_5_aqi, int):
+            return False
+        if not isinstance(sensor_data.p25aqic, RGB):
+            return False
+        return True
+
+    @staticmethod
+    def is_sane(reading: Reading) -> bool:
+        if not isinstance(reading.time_of_reading, datetime):
+            return False
+        if not isinstance(reading.current_temp_f, int):
+            return False
+        if not isinstance(reading.current_humidity, int):
+            return False
+        if not isinstance(reading.current_dewpoint_f, int):
+            return False
+        if not isinstance(reading.pressure, float):
+            return False
+        if not Service.is_sensor_sane(reading.sensor):
+            return False
+        if reading.sensor_b is not None and not Service.is_sensor_sane(reading.sensor_b):
+            return False
+        return True
+
     def compute_next_event(self, first_time: bool) -> Tuple[Event, float]:
         now = time.time()
         next_poll_event = int(now / self.pollfreq_secs) * self.pollfreq_secs + self.pollfreq_secs
@@ -527,11 +568,17 @@ class Service(object):
                 start = Service.utc_now()
                 reading: Reading = Service.collect_data(self.hostname, self.port, self.timeout_secs)
                 log.debug('Read sensor in %d seconds.' % (Service.utc_now() - start).seconds)
-                readings.append(reading)
+                if Service.is_sane(reading):
+                    readings.append(reading)
+                else:
+                    log.error('Reading found insane: %s' % reading)
             except Exception as e:
                 log.error('Skipping reading because of: %s' % e)
                 if len(readings) == 0 and event == event.ARCHIVE:
                     log.error('Skipping archive record because there have been zero readings this archive period.')
+
+            # May or may not have a new reading.  If reading not sane or
+            # exception, the reading isn't added to readings.
 
             # compute averages from records and write to database
             # if archive time, also write an archive record
