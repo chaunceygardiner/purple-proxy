@@ -40,7 +40,7 @@ my %summaries = (
 
 while(defined($_ = <STDIN>)) {
     chomp;
-    if (/Version *: 1.0/) {
+    if (/Version *:/) {
         $counts{$STARTUPS} += 1;
     } elsif (/Event took longer than expected/) {
         $counts{$LONG_SENSOR_READS} += 1;
@@ -68,6 +68,7 @@ while(defined($_ = <STDIN>)) {
              /service_name *:/ ||
              /pidfile *:/ ||
              /log_to_stdout *:/ ||
+             /Starting .* daemon:/ ||
              /debug *:/) {
         # ignore
     } else {
