@@ -355,14 +355,14 @@ class Service(object):
     @staticmethod
     def collect_data(hostname: str, port:int, timeout_secs:int) -> Reading:
         # fetch data
-        # If the machine was just rebooted, a Temporary filaure in name
-        # resolution is likely.  If so, try a three times.
+        # If the machine was just rebooted, a temporary failure in name
+        # resolution is likely.  As such, try three times.
         for i in range(3):
             try:
                 response: requests.Response = requests.get(url="http://%s:%s/json" % (hostname, port), timeout=timeout_secs)
                 response.raise_for_status()
             except requests.exceptions.ConnectionError as e:
-                if i < 2 and 'Temporary failure in name resolution' in str(e):
+                if i < 2:
                     log.info('%s: Retrying request.' % e)
                     time.sleep(5)
                 else:
