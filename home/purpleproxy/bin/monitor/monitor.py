@@ -361,6 +361,7 @@ class Service(object):
             try:
                 response: requests.Response = requests.get(url="http://%s:%s/json" % (hostname, port), timeout=timeout_secs)
                 response.raise_for_status()
+                break
             except requests.exceptions.ConnectionError as e:
                 if i < 2:
                     log.info('%s: Retrying request.' % e)
