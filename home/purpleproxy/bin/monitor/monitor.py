@@ -5,6 +5,7 @@
 
 """Make a rolling average of PurpleAir readings available.
 Read from purple-air sensor every --poll-freq-secs seconds.
+Offset readins by --poll-freq-offset.
 Write an average readings every --archive-interval-secs to a file.
 """
 
@@ -328,13 +329,15 @@ class Database(object):
 
 class Service(object):
     def __init__(self, hostname: str, port: int, timeout_secs: int,
-                 pollfreq_secs: int, arcint_secs: int, database: Database) -> None:
+                 pollfreq_secs: int, pollfreq_offset: int, arcint_secs: int,
+                 database: Database) -> None:
         self.hostname = hostname
         self.port = port
-        self.timeout_secs = timeout_secs
-        self.pollfreq_secs = pollfreq_secs
-        self.arcint_secs = arcint_secs
-        self.database = database
+        self.timeout_secs    = timeout_secs
+        self.pollfreq_secs   = pollfreq_secs
+        self.pollfreq_offset = pollfreq_offset
+        self.arcint_secs     = arcint_secs
+        self.database        = database
 
         log.debug('Service created')
 
@@ -557,6 +560,8 @@ class Service(object):
         next_arc_event = int(now / self.arcint_secs) * self.arcint_secs + self.arcint_secs
         event = Event.ARCHIVE if next_poll_event == next_arc_event else Event.POLL
         secs_to_event = next_poll_event - now
+        # Add pollfreq_offset to computed next event.
+        secs_to_event += self.pollfreq_offset
         log.debug('Next event: %r in %f seconds' % (event, secs_to_event))
         if not first_time and secs_to_event < 24.0:
             log.info('Event took longer than expected.  Next event in %f seconds.' % secs_to_event)
@@ -935,32 +940,34 @@ def start(args):
     conf_file: str = os.path.abspath(args[0])
     config_dict    = get_configuration(conf_file)
 
-    debug         : bool           = int(config_dict.get('debug', 0))
-    log_to_stdout : bool           = int(config_dict.get('log-to-stdout', 0))
-    service_name  : str            = config_dict.get('service-name', 'purple-proxy')
-    hostname      : Optional[str]  = config_dict.get('hostname', None)
-    port          : int            = int(config_dict.get('port', 80))
-    server_port   : int            = int(config_dict.get('server-port', 8000))
-    timeout_secs  : int            = int(config_dict.get('timeout-secs', 15))
-    pollfreq_secs : int            = int(config_dict.get('poll-freq-secs', 30))
-    arcint_secs   : int            = int(config_dict.get('archive-interval-secs', 300))
-    db_file       : Optional[str]  = config_dict.get('database-file', None)
+    debug          : bool           = int(config_dict.get('debug', 0))
+    log_to_stdout  : bool           = int(config_dict.get('log-to-stdout', 0))
+    service_name   : str            = config_dict.get('service-name', 'purple-proxy')
+    hostname       : Optional[str]  = config_dict.get('hostname', None)
+    port           : int            = int(config_dict.get('port', 80))
+    server_port    : int            = int(config_dict.get('server-port', 8000))
+    timeout_secs   : int            = int(config_dict.get('timeout-secs', 15))
+    pollfreq_secs  : int            = int(config_dict.get('poll-freq-secs', 30))
+    pollfreq_offset: int            = int(config_dict.get('poll-freq-offset', 0))
+    arcint_secs    : int            = int(config_dict.get('archive-interval-secs', 300))
+    db_file        : Optional[str]  = config_dict.get('database-file', None)
 
     global log
     log = Logger(service_name, log_to_stdout=log_to_stdout, debug_mode=debug)
 
-    log.info('debug         : %r'    % debug)
-    log.info('log_to_stdout : %r'    % log_to_stdout)
-    log.info('conf_file     : %s'    % conf_file)
-    log.info('Version       : %s'    % PURPLEAIR_PROXY_VERSION)
-    log.info('host:port     : %s:%s' % (hostname, port))
-    log.info('server_port   : %s'    % server_port)
-    log.info('timeout_secs  : %d'    % timeout_secs)
-    log.info('pollfreq_secs : %d'    % pollfreq_secs)
-    log.info('arcint_secs   : %d'    % arcint_secs)
-    log.info('db_file       : %s'    % db_file)
-    log.info('service_name  : %s'    % service_name)
-    log.info('pidfile       : %s'    % options.pidfile)
+    log.info('debug          : %r'    % debug)
+    log.info('log_to_stdout  : %r'    % log_to_stdout)
+    log.info('conf_file      : %s'    % conf_file)
+    log.info('Version        : %s'    % PURPLEAIR_PROXY_VERSION)
+    log.info('host:port      : %s:%s' % (hostname, port))
+    log.info('server_port    : %s'    % server_port)
+    log.info('timeout_secs   : %d'    % timeout_secs)
+    log.info('pollfreq_secs  : %d'    % pollfreq_secs)
+    log.info('pollfreq_offset: %d'    % pollfreq_offset)
+    log.info('arcint_secs    : %d'    % arcint_secs)
+    log.info('db_file        : %s'    % db_file)
+    log.info('service_name   : %s'    % service_name)
+    log.info('pidfile        : %s'    % options.pidfile)
 
     if options.test and options.dump:
         parser.error('At most one of --test and --dump can be specified.')
@@ -1001,7 +1008,7 @@ def start(args):
         database: Database = Database(db_file)
 
     purpleproxy_service = Service(hostname, port, timeout_secs, pollfreq_secs,
-                                  arcint_secs, database)
+                                  pollfreq_offset, arcint_secs, database)
 
     log.debug('Staring server on port %d.' % server_port)
     server.server.serve_requests(server_port, db_file)
