@@ -62,6 +62,7 @@ while(defined($_ = <STDIN>)) {
              /db_file *:/ ||
              /timeout_secs *:/ ||
              /pollfreq_secs *:/ ||
+             /pollfreq_offset *:/ ||
              /arcint_secs *:/ ||
              /outfile *:/ ||
              /arcfile *:/ ||
