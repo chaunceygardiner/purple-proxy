@@ -362,8 +362,12 @@ class Service(object):
         # resolution is likely.  As such, try three times.
         for i in range(3):
             try:
-                response: requests.Response = requests.get(url="http://%s:%s/json" % (hostname, port), timeout=timeout_secs)
+                start_time = time.time()
+                response: requests.Response = requests.get(url="http://%s:%s/json" % (hostname, port), stream=True, timeout=timeout_secs)
                 response.raise_for_status()
+                elapsed_time = time.time() - start_time
+                if elapsed_time > 6.0:
+                    log.info('Event took longer than expected: %f seconds.' % elapsed_time)
                 break
             except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout) as e:
                 if i < 2:
@@ -563,8 +567,6 @@ class Service(object):
         # Add pollfreq_offset to computed next event.
         secs_to_event += self.pollfreq_offset
         log.debug('Next event: %r in %f seconds' % (event, secs_to_event))
-        if not first_time and secs_to_event < 24.0:
-            log.info('Event took longer than expected.  Next event in %f seconds.' % secs_to_event)
         return event, secs_to_event
 
     def do_loop(self) -> None:
