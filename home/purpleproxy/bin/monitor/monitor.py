@@ -365,10 +365,10 @@ class Service(object):
                 response: requests.Response = requests.get(url="http://%s:%s/json" % (hostname, port), timeout=timeout_secs)
                 response.raise_for_status()
                 break
-            except requests.exceptions.ConnectionError as e:
+            except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout) as e:
                 if i < 2:
                     log.info('%s: Retrying request.' % e)
-                    time.sleep(5)
+                    sleep(5)
                 else:
                     raise e
         return Service.parse_response(response)
