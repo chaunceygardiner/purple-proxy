@@ -356,20 +356,21 @@ class Service(object):
             p25aqic            = Service.convert_str_to_rgb(j['p25aqic' + suffix]))
 
     @staticmethod
-    def collect_data(hostname: str, port:int, timeout_secs:int) -> Reading:
+    def collect_data(session: requests.Session, hostname: str, port:int, timeout_secs:int) -> Reading:
         # fetch data
         # If the machine was just rebooted, a temporary failure in name
-        # resolution is likely.  As such, try three times.
+        # resolution is likely.  As such, try three times on ConnectionError.
         for i in range(3):
             try:
                 start_time = time.time()
-                response: requests.Response = requests.get(url="http://%s:%s/json" % (hostname, port), stream=True, timeout=timeout_secs)
+                response: requests.Response = session.get(url="http://%s:%s/json" % (hostname, port), timeout=timeout_secs)
                 response.raise_for_status()
                 elapsed_time = time.time() - start_time
+                log.error('collect_data: elapsed time: %f seconds.' % elapsed_time)
                 if elapsed_time > 6.0:
                     log.info('Event took longer than expected: %f seconds.' % elapsed_time)
                 break
-            except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout) as e:
+            except requests.exceptions.ConnectionError as e:
                 if i < 2:
                     log.info('%s: Retrying request.' % e)
                     sleep(5)
@@ -574,6 +575,7 @@ class Service(object):
 
         first_time: bool = True
         log.debug('Started main loop.')
+        session: Optional[requests.Session] = None
         while True:
             # sleep until next event
             event, secs_to_event = self.compute_next_event(first_time)
@@ -584,7 +586,9 @@ class Service(object):
             try:
                 # collect another reading and add it to readings
                 start = Service.utc_now()
-                reading: Reading = Service.collect_data(self.hostname, self.port, self.timeout_secs)
+                if session is None:
+                    session= requests.Session()
+                reading: Reading = Service.collect_data(session, self.hostname, self.port, self.timeout_secs)
                 log.debug('Read sensor in %d seconds.' % (Service.utc_now() - start).seconds)
                 if Service.is_sane(reading):
                     readings.append(reading)
@@ -592,6 +596,8 @@ class Service(object):
                     log.error('Reading found insane: %s' % reading)
             except Exception as e:
                 log.error('Skipping reading because of: %s' % e)
+                # Probably a good idea to reset the session
+                session = None
                 if len(readings) == 0 and event == event.ARCHIVE:
                     log.error('Skipping archive record because there have been zero readings this archive period.')
 
@@ -654,10 +660,11 @@ def print_failed(e: Exception) -> None:
 
 def collect_two_readings_one_second_apart(hostname: str, port: int, timeout_secs:int) -> Tuple[Reading, Reading]:
     try:
+        session: requests.Session = requests.Session()
         print('collect_two_readings_one_seconds_apart...', end='')
-        reading1: Reading = Service.collect_data(hostname, port, timeout_secs)
+        reading1: Reading = Service.collect_data(session, hostname, port, timeout_secs)
         sleep(1) # to get a different time (to the second) on reading2
-        reading2: Reading = Service.collect_data(hostname, port, timeout_secs)
+        reading2: Reading = Service.collect_data(session, hostname, port, timeout_secs)
         print_passed()
         return reading1, reading2
     except Exception as e:
