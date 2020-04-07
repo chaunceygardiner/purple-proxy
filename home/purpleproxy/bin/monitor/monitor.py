@@ -366,7 +366,7 @@ class Service(object):
                 response: requests.Response = session.get(url="http://%s:%s/json" % (hostname, port), timeout=timeout_secs)
                 response.raise_for_status()
                 elapsed_time = time.time() - start_time
-                log.error('collect_data: elapsed time: %f seconds.' % elapsed_time)
+                log.debug('collect_data: elapsed time: %f seconds.' % elapsed_time)
                 if elapsed_time > 6.0:
                     log.info('Event took longer than expected: %f seconds.' % elapsed_time)
                 break
