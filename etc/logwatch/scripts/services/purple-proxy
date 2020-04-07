@@ -21,13 +21,11 @@ my $CURRENT_INSERT_ERRORS = 'Current Insert Errors';
 my @unmatched = ();
 
 # keep details
-my @long_sensor_readings = ();
 my @skipped_sensor_readings = ();
 my @current_insert_errors = ();
 my @archive_insert_errors = ();
 
 my %itemized = (
-    'Long Sensor Readings', \@long_sensor_readings,
     'Skipped Sensor Readings', \@skipped_sensor_readings,
     'Archive Insert Errors', \@archive_insert_errors,
     'Current Insert Errors', \@current_insert_errors,
@@ -44,7 +42,6 @@ while(defined($_ = <STDIN>)) {
         $counts{$STARTUPS} += 1;
     } elsif (/Event took longer than expected/) {
         $counts{$LONG_SENSOR_READS} += 1;
-        push @long_sensor_readings, $_;
     } elsif (/Added record/) {
         $counts{$ARCHIVE_RECORDS_ADDED} += 1;
     } elsif (/Could not save archive reading to database/) {
