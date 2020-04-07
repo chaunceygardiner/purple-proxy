@@ -596,8 +596,14 @@ class Service(object):
                     log.error('Reading found insane: %s' % reading)
             except Exception as e:
                 log.error('Skipping reading because of: %s' % e)
-                # Probably a good idea to reset the session
-                session = None
+                # It's probably a good idea to reset the session
+                try:
+                    if session is not None:
+                        session.close()
+                except Exception as e:
+                    log.info('Non-fatal: calling session.close(): %s' % e)
+                finally:
+                    session = None
                 if len(readings) == 0 and event == event.ARCHIVE:
                     log.error('Skipping archive record because there have been zero readings this archive period.')
 
