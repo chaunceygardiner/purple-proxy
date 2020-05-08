@@ -16,17 +16,19 @@ my $ARCHIVE_RECORDS_ADDED = 'Archive Records Added';
 my $SKIPPED_SENSOR_READINGS = 'Skipped Sensor Readings';
 my $ARCHIVE_INSERT_ERRORS = 'Archive Insert Errors';
 my $CURRENT_INSERT_ERRORS = 'Current Insert Errors';
+my $TMP_NAME_RESOLUTON_ERRORS = 'Tmp Name Resolution Errors';
+my $SKIPPED_ARCHIVE_RECORDS = 'Skipped archive records';
+my $CONNECTION_REFUSED = 'Connection refused';
+my $NAME_UNKNOWN = 'Name or service not known';
 
 # any lines that do not match the patterns we define
 my @unmatched = ();
 
 # keep details
-my @skipped_sensor_readings = ();
 my @current_insert_errors = ();
 my @archive_insert_errors = ();
 
 my %itemized = (
-    'Skipped Sensor Readings', \@skipped_sensor_readings,
     'Archive Insert Errors', \@archive_insert_errors,
     'Current Insert Errors', \@current_insert_errors,
     );
@@ -51,8 +53,15 @@ while(defined($_ = <STDIN>)) {
         push @current_insert_errors, $_;
         $counts{$CURRENT_INSERT_ERRORS} += 1;
     } elsif (/Skipping reading because of:/) {
-        push @skipped_sensor_readings, $_;
         $counts{$SKIPPED_SENSOR_READINGS} += 1;
+    } elsif (/Failed to establish a new connection: .* Temporary failure in name resolution/) {
+        $counts{$TMP_NAME_RESOLUTON_ERRORS} += 1;
+    } elsif (/Skipping archive record because there have been zero readings this archive period/) {
+        $counts{$SKIPPED_ARCHIVE_RECORDS} += 1;
+    } elsif (/Connection refused.*Retrying request/) {
+        $counts{$CONNECTION_REFUSED} += 1;
+    } elsif (/Failed to establish a new connection: .* Name or service not known/) {
+        $counts{$NAME_UNKNOWN} += 1;
     } elsif (/host:port *:/ ||
              /conf_file *:/ ||
              /server_port *:/ ||
