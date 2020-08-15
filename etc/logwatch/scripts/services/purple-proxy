@@ -17,6 +17,7 @@ my $SKIPPED_SENSOR_READINGS = 'Skipped Sensor Readings';
 my $ARCHIVE_INSERT_ERRORS = 'Archive Insert Errors';
 my $CURRENT_INSERT_ERRORS = 'Current Insert Errors';
 my $TMP_NAME_RESOLUTON_ERRORS = 'Tmp Name Resolution Errors';
+my $NO_ROUTE_TO_HOST_ERRORS = 'No Route to Host';
 my $SKIPPED_ARCHIVE_RECORDS = 'Skipped archive records';
 my $CONNECTION_REFUSED = 'Connection refused';
 my $NAME_UNKNOWN = 'Name or service not known';
@@ -56,6 +57,8 @@ while(defined($_ = <STDIN>)) {
         $errors{$SKIPPED_SENSOR_READINGS} += 1;
     } elsif (/Failed to establish a new connection: .* Temporary failure in name resolution/) {
         $errors{$TMP_NAME_RESOLUTON_ERRORS} += 1;
+    } elsif (/Failed to establish a new connection: .* No route to host/) {
+        $errors{$NO_ROUTE_TO_HOST_ERRORS} += 1;
     } elsif (/Skipping archive record because there have been zero readings this archive period/) {
         $errors{$SKIPPED_ARCHIVE_RECORDS} += 1;
     } elsif (/Connection refused.*Retrying request/) {
