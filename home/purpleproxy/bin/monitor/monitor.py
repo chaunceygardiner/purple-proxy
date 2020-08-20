@@ -629,9 +629,10 @@ class Service(object):
                 json_reading: str = Service.convert_to_json(avg_reading)
                 try:
                     start = Service.utc_now()
-                    self.database.save_current_reading(reading)
+                    self.database.save_current_reading(avg_reading)
                     log.debug('Saved current reading in %d seconds.' % (Service.utc_now() - start).seconds)
-                    log.debug('Saved current reading %s to database.' % Service.datetime_display(reading.time_of_reading))
+                    log.debug('Saved current reading %s to database.  Reading contains %d samples.'
+                        % (Service.datetime_display(avg_reading.time_of_reading), len(readings)))
                 except Exception as e:
                     log.critical('Could not save current reading to database: %s: %s' % (self.database, e))
                 if event == event.ARCHIVE:
