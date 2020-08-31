@@ -363,7 +363,7 @@ class Service(object):
         for i in range(3):
             try:
                 start_time = time.time()
-                response: requests.Response = session.get(url="http://%s:%s/json" % (hostname, port), timeout=timeout_secs)
+                response: requests.Response = session.get(url="http://%s:%s/json?live=true" % (hostname, port), timeout=timeout_secs)
                 response.raise_for_status()
                 elapsed_time = time.time() - start_time
                 log.debug('collect_data: elapsed time: %f seconds.' % elapsed_time)
