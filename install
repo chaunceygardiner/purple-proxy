@@ -31,11 +31,19 @@ mkdir -p "$target_dir"/archive 2> /dev/null
 mkdir -p "$target_dir"/bin/monitor 2> /dev/null
 mkdir    "$target_dir"/bin/server 2> /dev/null
 
-cp ${src_dir}/etc/logrotate.d/purple-proxy ${etc}/logrotate.d/
-cp ${src_dir}/etc/logwatch/conf/services/purple-proxy.conf ${etc}/logwatch/conf/services/
-cp ${src_dir}/etc/logwatch/conf/logfiles/purple-proxy.conf ${etc}/logwatch/conf/logfiles/
-cp ${src_dir}/etc/logwatch/scripts/services/purple-proxy ${etc}/logwatch/scripts/services/
-cp ${src_dir}/etc/rsyslog.d/purple-proxy.conf ${etc}/rsyslog.d/
+if [ -d "/etc/logrotate.d" ]; then
+  cp ${src_dir}/etc/logrotate.d/purple-proxy ${etc}/logrotate.d/
+fi
+
+if [ -d "/etc/logwatch" ]; then
+  cp ${src_dir}/etc/logwatch/conf/services/purple-proxy.conf ${etc}/logwatch/conf/services/
+  cp ${src_dir}/etc/logwatch/conf/logfiles/purple-proxy.conf ${etc}/logwatch/conf/logfiles/
+  cp ${src_dir}/etc/logwatch/scripts/services/purple-proxy ${etc}/logwatch/scripts/services/
+fi
+
+if [ -d "/etc/rsyslog.d" ]; then
+  cp ${src_dir}/etc/rsyslog.d/purple-proxy.conf ${etc}/rsyslog.d/
+fi
 
 # cp and fixup /etc/init.d/purple-proxy
 cat ${src_dir}/etc/init.d/purple-proxy | sed "s%/home/purpleproxy%$target_dir%g" > /${etc}/init.d/purple-proxy
@@ -49,6 +57,7 @@ cp ${src_dir}/home/purpleproxy/bin/monitor/monitor.py ${target_dir}/bin/monitor/
 
 # copy and fix up the wrapper
 cat ${src_dir}/home/purpleproxy/bin/purpleproxy-wrapper.sh | sed "s%/home/purpleproxy%$target_dir%g" > ${target_dir}/bin/purpleproxy-wrapper.sh
+chmod +x ${target_dir}/bin/purpleproxy-wrapper.sh
 
 echo "# PurpleProxy configuration file" > ${target_dir}/purpleproxy.conf
 echo "debug = 0" >> ${target_dir}/purpleproxy.conf
@@ -64,8 +73,13 @@ echo "database-file = ${target_dir}/archive/purpleproxy.sdb" >> ${target_dir}/pu
 
 # If for real...
 if [ "$etc" = "/etc" ]; then
-    service rsyslog restart
-    service logrotate restart
-    systemctl enable /etc/init.d/purple-proxy
+    if [ -d "/etc/rsyslog.d" ]; then
+        service rsyslog restart
+    fi
+    if [ -d "/etc/logrotate.d" ]; then
+        service logrotate restart
+    fi
+    chmod +x /etc/init.d/purple-proxy
+    systemctl enable purple-proxy
     /etc/init.d/purple-proxy start
 fi
