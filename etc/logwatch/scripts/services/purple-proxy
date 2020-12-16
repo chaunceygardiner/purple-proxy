@@ -21,6 +21,7 @@ my $NO_ROUTE_TO_HOST_ERRORS = 'No Route to Host';
 my $SKIPPED_ARCHIVE_RECORDS = 'Skipped archive records';
 my $CONNECTION_REFUSED = 'Connection refused';
 my $CONNECTION_TIMEOUT = 'Connection timed out';
+my $READ_TIMEOUT = 'Read timed out';
 my $NAME_UNKNOWN = 'Name or service not known';
 
 # any lines that do not match the patterns we define
@@ -66,6 +67,8 @@ while(defined($_ = <STDIN>)) {
         $errors{$CONNECTION_REFUSED} += 1;
     } elsif (/Caused by ConnectTimeoutError/) {
         $errors{$CONNECTION_TIMEOUT} += 1;
+    } elsif (/Read timed out.*Retrying request/) {
+        $errors{$READ_TIMEOUT} += 1;
     } elsif (/Failed to establish a new connection: .* Name or service not known/) {
         $errors{$NAME_UNKNOWN} += 1;
     } elsif (/host:port *:/ ||
