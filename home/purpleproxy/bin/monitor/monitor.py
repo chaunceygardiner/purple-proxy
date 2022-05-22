@@ -186,7 +186,7 @@ class Database(object):
         insert_reading_sql: str = ('INSERT INTO Reading ('
             ' record_type, timestamp, current_temp_f, current_humidity, current_dewpoint_f, pressure)'
             ' VALUES(%d, %d, %d, %d, %d, %f);' % (record_type, stamp, r.current_temp_f, r.current_humidity, r.current_dewpoint_f, r.pressure))
-        with sqlite3.connect(self.db_file, timeout=5) as conn:
+        with sqlite3.connect(self.db_file, timeout=15) as conn:
             cursor = conn.cursor()
             # if a current record, delete previous current.
             if record_type == RecordType.CURRENT:
