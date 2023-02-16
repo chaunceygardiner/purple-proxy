@@ -27,6 +27,13 @@ purple-proxy works in the backround querying the PurpleAir sensor and answers qu
 ### Json Specification
 See the PurpleAir spec for the json.  In addition to that spec, the proxy adds `_avg` fields for devices with two sensors.
 
+## Important Instruction for those Upgrading from Version 1 to 2.
+
+You must run the following command if you are upgrading.  It add a `gas_680` coulumn to the `Reading` table which is present on
+PurpleAir Flex models (you must run this command even if you don't have a PurpleAir Flex):
+
+`echo "ALTER TABLE Reading ADD COLUMN gas_680 REAL" | sudo sqlite3 /home/purpleproxy/archive/purpleproxy.sdb`
+
 ## Installation Instructions
 
 Note: Tested under Debian and Raspbian.  For other platorms,

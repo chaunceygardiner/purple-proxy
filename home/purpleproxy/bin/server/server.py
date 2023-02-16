@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from json import dumps
 from typing import Any, Dict, IO, Iterator, List, Optional, Tuple
 
-VERSION = '1'
+VERSION = '2'
 
 class RequestType(Enum):
     ERROR                  = 0
