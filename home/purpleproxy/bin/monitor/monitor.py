@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-# Copyright (c) 2020 John A Kline
+# Copyright (c) 2022-2023 John A Kline
 # See the file LICENSE for your full rights.
 
 """Make a rolling average of PurpleAir readings available.
@@ -39,7 +39,7 @@ from time import sleep
 from dataclasses import dataclass, field
 from typing import Any, Dict, IO, Iterator, List, Optional, Tuple
 
-PURPLEAIR_PROXY_VERSION = "2.0"
+PURPLEAIR_PROXY_VERSION = "2.1"
 
 class Logger(object):
     def __init__(self, service_name: str, log_to_stdout: bool=False, debug_mode: bool=False):
@@ -276,7 +276,7 @@ class Database(object):
                     # is a sensor_b reading, add it the exising
                     # reading, then yeild it; else yield before
                     # processing this row.
-                    if row[5] == 1: # a sensor b reading
+                    if row[6] == 1: # a sensor b reading
                         reading = Database.add_to_reading_from_row(reading, row)
                         yield reading
                         reading = None
@@ -290,7 +290,7 @@ class Database(object):
 
     @staticmethod
     def create_reading_from_row(row) -> Reading:
-        if row[5] == Sensor.B:
+        if row[6] == Sensor.B:
             raise UnexpectedSensorRecord('create_reading_from_row called with a B sensor row: %r' % row)
         return Reading(
             time_of_reading    = datetime.fromtimestamp(row[0], tz=tz.gettz('UTC')),
@@ -317,22 +317,22 @@ class Database(object):
 
     @staticmethod
     def add_to_reading_from_row(reading, row) -> Reading:
-        if row[5] == Sensor.A:
+        if row[6] == Sensor.A:
             raise UnexpectedSensorRecord('add_to_reading_from_row called with an A sensor row: %r' % row)
         reading.sensor_b   = SensorData(
-            pm1_0_cf_1     = row[6],
-            pm1_0_atm      = row[7],
-            p_0_3_um       = row[8],
-            pm2_5_cf_1     = row[9],
-            pm2_5_atm      = row[10],
-            p_0_5_um       = row[11],
-            pm10_0_cf_1    = row[12],
-            pm10_0_atm     = row[13],
-            pm2_5_aqi      = row[14],
+            pm1_0_cf_1     = row[7],
+            pm1_0_atm      = row[8],
+            p_0_3_um       = row[9],
+            pm2_5_cf_1     = row[10],
+            pm2_5_atm      = row[11],
+            p_0_5_um       = row[12],
+            pm10_0_cf_1    = row[13],
+            pm10_0_atm     = row[14],
+            pm2_5_aqi      = row[15],
             p25aqic        = RGB(
-                red        = row[15],
-                green      = row[16],
-                blue       = row[17]))
+                red        = row[16],
+                green      = row[17],
+                blue       = row[18]))
         return reading
 
 class Service(object):

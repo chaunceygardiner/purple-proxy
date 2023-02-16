@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-# Copyright (c) 2020 John A Kline
+# Copyright (c) 2020-2023 John A Kline
 # See the file LICENSE for your full rights.
 
 import http.server

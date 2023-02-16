@@ -1,8 +1,6 @@
 # purple-proxy
 Proxy server for PurpleAir air quality sensor.  Serves current and archived readings which are averaged over a specified interval.
 
-***WARNING: Version 2.0 has issues!  Wait for version 2.1!***
-
 ## What? Why?
 
 purple-proxy works in the backround querying the PurpleAir sensor and answers queries from clients about air quality.
