@@ -463,7 +463,10 @@ class Service(object):
             summed_reading.current_humidity   += reading.current_humidity
             summed_reading.current_dewpoint_f += reading.current_dewpoint_f
             summed_reading.pressure           += reading.pressure
-            summed_reading.gas_680            += reading.gas_680 if summed_reading.gas_680 is not None and reading.gas_680 is not None else None
+            if summed_reading.gas_680 is not None and reading.gas_680 is not None:
+                summed_reading.gas_680        += reading.gas_680
+            else:
+                summed_reading.gas_680         = None
             summed_reading.sensor              = Service.sum_sensor(summed_reading.sensor, reading.sensor)
             summed_reading.sensor_b            = Service.sum_sensor(summed_reading.sensor_b, reading.sensor_b) if summed_reading.sensor_b is not None and reading.sensor_b is not None else None
 
