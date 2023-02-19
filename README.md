@@ -41,6 +41,7 @@ these instructions and the install script serve as a specification
 for what steps are needed to install.
 
 ```
+sudo apt install python3-configobj
 sudo <purple-proxy-src-dir>/install <purple-proxy-src-dir> <target-dir> <archive-interval-seconds> <purpleair-dns-name-or-ip-address>"
 ```
 
