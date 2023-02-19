@@ -29,8 +29,9 @@ See the PurpleAir spec for the json.  In addition to that spec, the proxy adds `
 
 ## Important Instruction for those Upgrading from Version 1 to 2.
 
-You must run the `update_db_columns.sh` script (found in the root directory of this repository) if you are upgrading
-from any version prior to version `2.2`.  This script adds the new (BM680) columns (found in the Flex and Zen products) to the database.
+You must run the `sudo update_db_columns.sh` script (found in the root directory of this repository) if you are upgrading
+from any version prior to version `2.3`.  This script adds the new (BM680) columns (found in the Flex and Zen products) to the database.
+It also adds columns missing from the original PurpleAir devices (`p_1_0_um`, `p_2_5_um`, `p_5_0_um`, `p_10_0_um`).
 ***You must run this script  even if you don't have a PurpleAir Flex or PurpleAir Zen!***
 
 ## Installation Instructions

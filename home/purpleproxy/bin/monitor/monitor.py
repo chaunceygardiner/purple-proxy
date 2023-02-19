@@ -39,7 +39,7 @@ from time import sleep
 from dataclasses import dataclass, field
 from typing import Any, Dict, IO, Iterator, List, Optional, Tuple
 
-PURPLEAIR_PROXY_VERSION = "2.2"
+PURPLEAIR_PROXY_VERSION = "2.3"
 
 class Logger(object):
     def __init__(self, service_name: str, log_to_stdout: bool=False, debug_mode: bool=False):
@@ -96,12 +96,16 @@ class RGB:
 class SensorData:
     pm1_0_cf_1        : float
     pm1_0_atm         : float
-    p_0_3_um          : float
     pm2_5_cf_1        : float
     pm2_5_atm         : float
-    p_0_5_um          : float
     pm10_0_cf_1       : float
     pm10_0_atm        : float
+    p_0_3_um          : float
+    p_0_5_um          : float
+    p_1_0_um          : float
+    p_2_5_um          : float
+    p_5_0_um          : float
+    p_10_0_um         : float
     pm2_5_aqi         : int
     p25aqic           : RGB
 
@@ -165,12 +169,16 @@ class Database(object):
             ' sensor       INTEGER NOT NULL,'
             ' pm1_0_cf_1   REAL NOT NULL,'
             ' pm1_0_atm    REAL NOT NULL,'
-            ' p_0_3_um     REAL NOT NULL,'
             ' pm2_5_cf_1   REAL NOT NULL,'
             ' pm2_5_atm    REAL NOT NULL,'
-            ' p_0_5_um     REAL NOT NULL,'
             ' pm10_0_cf_1  REAL NOT NULL,'
             ' pm10_0_atm   REAL NOT NULL,'
+            ' p_0_3_um     REAL NOT NULL,'
+            ' p_0_5_um     REAL NOT NULL,'
+            ' p_1_0_um     REAL NOT NULL,'
+            ' p_2_5_um      REAL NOT NULL,'
+            ' p_5_0_um      REAL NOT NULL,'
+            ' p_10_0_um     REAL NOT NULL,'
             ' pm2_5_aqi    INTEGER NOT NULL,'
             ' p25aqi_red   INTEGER NOT NULL,'
             ' p25aqi_green INTEGER NOT NULL,'
@@ -219,13 +227,15 @@ class Database(object):
 
     def save_sensor(self, cursor: sqlite3.Cursor, record_type: int, stamp: int, sensor_number: int, sensor: SensorData) -> None:
         insert_sensor_sql: str = ('INSERT INTO Sensor ('
-            ' record_type, timestamp, sensor, pm1_0_cf_1, pm1_0_atm, p_0_3_um, pm2_5_cf_1,'
-            ' pm2_5_atm, p_0_5_um, pm10_0_cf_1, pm10_0_atm, pm2_5_aqi,'
-            ' p25aqi_red, p25aqi_green, p25aqi_blue)'
-            ' VALUES(%d, %d, %d, %f, %f, %f, %f, %f, %f, %f, %f, %d, %d, %d, %d);' % (
-            record_type, stamp, sensor_number, sensor.pm1_0_cf_1, sensor.pm1_0_atm, sensor.p_0_3_um,
-            sensor.pm2_5_cf_1, sensor.pm2_5_atm, sensor.p_0_5_um, sensor.pm10_0_cf_1,
-            sensor.pm10_0_atm, sensor.pm2_5_aqi, sensor.p25aqic.red, sensor.p25aqic.green, sensor.p25aqic.blue))
+            ' record_type, timestamp, sensor,'
+            ' pm1_0_cf_1, pm1_0_atm, pm2_5_cf_1, pm2_5_atm, pm10_0_cf_1, pm10_0_atm,'
+            ' p_0_3_um, p_0_5_um, p_1_0_um, p_2_5_um, p_5_0_um, p_10_0_um,'
+            ' pm2_5_aqi, p25aqi_red, p25aqi_green, p25aqi_blue)'
+            ' VALUES(%d, %d, %d, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %d, %d, %d, %d);' % (
+            record_type, stamp, sensor_number, sensor.pm1_0_cf_1, sensor.pm1_0_atm,
+            sensor.pm2_5_cf_1, sensor.pm2_5_atm, sensor.pm10_0_cf_1, sensor.pm10_0_atm,
+            sensor.p_0_3_um, sensor.p_0_5_um, sensor.p_1_0_um, sensor.p_2_5_um, sensor.p_5_0_um, sensor.p_10_0_um,
+            sensor.pm2_5_aqi, sensor.p25aqic.red, sensor.p25aqic.green, sensor.p25aqic.blue))
         cursor.execute(insert_sensor_sql)
 
     def fetch_current_readings(self) -> Iterator[Reading]:
@@ -265,8 +275,9 @@ class Database(object):
         select: str = ('SELECT Reading.timestamp, current_temp_f,'
             ' current_humidity, current_dewpoint_f, pressure, current_temp_f_680, current_humidity_680,'
             ' current_dewpoint_f_680, pressure_680, gas_680, sensor,'
-            ' pm1_0_cf_1, pm1_0_atm, p_0_3_um, pm2_5_cf_1, pm2_5_atm, p_0_5_um,'
-            ' pm10_0_cf_1, pm10_0_atm, pm2_5_aqi, p25aqi_red, p25aqi_green,'
+            ' pm1_0_cf_1, pm1_0_atm, pm2_5_cf_1, pm2_5_atm, pm10_0_cf_1, pm10_0_atm,'
+            ' p_0_3_um, p_0_5_um, p_1_0_um, p_2_5_um, p_5_0_um, p_10_0_um,'
+            ' pm2_5_aqi, p25aqi_red, p25aqi_green,'
             ' p25aqi_blue FROM Reading, Sensor WHERE Reading.record_type = %d'
             ' AND Sensor.record_type = %d AND Reading.timestamp = Sensor.timestamp'
             ' AND Reading.timestamp > %d') % (record_type, record_type, since_ts)
@@ -318,17 +329,21 @@ class Database(object):
             sensor                 = SensorData(
                 pm1_0_cf_1         = row[11],
                 pm1_0_atm          = row[12],
-                p_0_3_um           = row[13],
-                pm2_5_cf_1         = row[14],
-                pm2_5_atm          = row[15],
-                p_0_5_um           = row[16],
-                pm10_0_cf_1        = row[17],
-                pm10_0_atm         = row[18],
-                pm2_5_aqi          = row[19],
+                pm2_5_cf_1         = row[13],
+                pm2_5_atm          = row[14],
+                pm10_0_cf_1        = row[15],
+                pm10_0_atm         = row[16],
+                p_0_3_um           = row[17],
+                p_0_5_um           = row[18],
+                p_1_0_um           = row[19],
+                p_2_5_um           = row[20],
+                p_5_0_um           = row[21],
+                p_10_0_um           = row[22],
+                pm2_5_aqi          = row[23],
                 p25aqic            = RGB(
-                    red            = row[20],
-                    green          = row[21],
-                    blue           = row[22])),
+                    red            = row[24],
+                    green          = row[25],
+                    blue           = row[26])),
             sensor_b               = None)
 
     @staticmethod
@@ -338,17 +353,21 @@ class Database(object):
         reading.sensor_b   = SensorData(
             pm1_0_cf_1     = row[11],
             pm1_0_atm      = row[12],
-            p_0_3_um       = row[13],
-            pm2_5_cf_1     = row[14],
-            pm2_5_atm      = row[15],
-            p_0_5_um       = row[16],
-            pm10_0_cf_1    = row[17],
-            pm10_0_atm     = row[18],
-            pm2_5_aqi      = row[19],
+            pm2_5_cf_1     = row[13],
+            pm2_5_atm      = row[14],
+            pm10_0_cf_1    = row[15],
+            pm10_0_atm     = row[16],
+            p_0_3_um       = row[17],
+            p_0_5_um       = row[18],
+            p_1_0_um       = row[19],
+            p_2_5_um       = row[20],
+            p_5_0_um       = row[21],
+            p_10_0_um       = row[22],
+            pm2_5_aqi      = row[23],
             p25aqic        = RGB(
-                red        = row[20],
-                green      = row[21],
-                blue       = row[22]))
+                red        = row[24],
+                green      = row[25],
+                blue       = row[26]))
         return reading
 
 class Service(object):
@@ -370,12 +389,16 @@ class Service(object):
         return SensorData(
             pm1_0_cf_1         = j['pm1_0_cf_1' + suffix],
             pm1_0_atm          = j['pm1_0_atm' + suffix],
-            p_0_3_um           = j['p_0_3_um' + suffix],
             pm2_5_cf_1         = j['pm2_5_cf_1' + suffix],
             pm2_5_atm          = j['pm2_5_atm' + suffix],
-            p_0_5_um           = j['p_0_5_um' + suffix],
             pm10_0_cf_1        = j['pm10_0_cf_1' + suffix],
             pm10_0_atm         = j['pm10_0_atm' + suffix],
+            p_0_3_um           = j['p_0_3_um' + suffix],
+            p_0_5_um           = j['p_0_5_um' + suffix],
+            p_1_0_um           = j['p_1_0_um' + suffix],
+            p_2_5_um           = j['p_2_5_um' + suffix],
+            p_5_0_um           = j['p_5_0_um' + suffix],
+            p_10_0_um           = j['p_10_0_um' + suffix],
             pm2_5_aqi          = j['pm2.5_aqi' + suffix],
             p25aqic            = Service.convert_str_to_rgb(j['p25aqic' + suffix]))
 
@@ -446,12 +469,16 @@ class Service(object):
         return SensorData(
             pm1_0_cf_1  = sensor1.pm1_0_cf_1    + sensor2.pm1_0_cf_1,
             pm1_0_atm   = sensor1.pm1_0_atm     + sensor2.pm1_0_atm,
-            p_0_3_um    = sensor1.p_0_3_um      + sensor2.p_0_3_um,
             pm2_5_cf_1  = sensor1.pm2_5_cf_1    + sensor2.pm2_5_cf_1,
             pm2_5_atm   = sensor1.pm2_5_atm     + sensor2.pm2_5_atm,
-            p_0_5_um    = sensor1.p_0_5_um      + sensor2.p_0_5_um,
             pm10_0_cf_1 = sensor1.pm10_0_cf_1   + sensor2.pm10_0_cf_1,
             pm10_0_atm  = sensor1.pm10_0_atm    + sensor2.pm10_0_atm,
+            p_0_3_um    = sensor1.p_0_3_um      + sensor2.p_0_3_um,
+            p_0_5_um    = sensor1.p_0_5_um      + sensor2.p_0_5_um,
+            p_1_0_um    = sensor1.p_1_0_um      + sensor2.p_1_0_um,
+            p_2_5_um    = sensor1.p_2_5_um      + sensor2.p_2_5_um,
+            p_5_0_um    = sensor1.p_5_0_um      + sensor2.p_5_0_um,
+            p_10_0_um    = sensor1.p_10_0_um    + sensor2.p_10_0_um,
             pm2_5_aqi   = sensor1.pm2_5_aqi     + sensor2.pm2_5_aqi,
             p25aqic     = Service.sum_rgb(sensor1.p25aqic, sensor2.p25aqic))
 
@@ -460,12 +487,16 @@ class Service(object):
         return SensorData(
             pm1_0_cf_1  = summed_sensor.pm1_0_cf_1    / count,
             pm1_0_atm   = summed_sensor.pm1_0_atm     / count,
-            p_0_3_um    = summed_sensor.p_0_3_um      / count,
             pm2_5_cf_1  = summed_sensor.pm2_5_cf_1    / count,
             pm2_5_atm   = summed_sensor.pm2_5_atm     / count,
-            p_0_5_um    = summed_sensor.p_0_5_um      / count,
             pm10_0_cf_1 = summed_sensor.pm10_0_cf_1   / count,
             pm10_0_atm  = summed_sensor.pm10_0_atm    / count,
+            p_0_3_um    = summed_sensor.p_0_3_um      / count,
+            p_0_5_um    = summed_sensor.p_0_5_um      / count,
+            p_1_0_um    = summed_sensor.p_1_0_um      / count,
+            p_2_5_um    = summed_sensor.p_2_5_um      / count,
+            p_5_0_um    = summed_sensor.p_5_0_um      / count,
+            p_10_0_um   = summed_sensor.p_10_0_um     / count,
             pm2_5_aqi   = int(summed_sensor.pm2_5_aqi / count + 0.5),
             p25aqic     = RGB(
                 int(summed_sensor.p25aqic.red / count + 0.5),
@@ -519,12 +550,16 @@ class Service(object):
         sensor_dict: Dict[str, Any] = {
             'pm1_0_cf_1' + suffix  : sensor.pm1_0_cf_1,
             'pm1_0_atm' + suffix   : sensor.pm1_0_atm,
-            'p_0_3_um' + suffix    : sensor.p_0_3_um,
             'pm2_5_cf_1' + suffix  : sensor.pm2_5_cf_1,
             'pm2_5_atm' + suffix   : sensor.pm2_5_atm,
-            'p_0_5_um' + suffix    : sensor.p_0_5_um,
             'pm10_0_cf_1' + suffix : sensor.pm10_0_cf_1,
             'pm10_0_atm' + suffix  : sensor.pm10_0_atm,
+            'p_0_3_um' + suffix    : sensor.p_0_3_um,
+            'p_0_5_um' + suffix    : sensor.p_0_5_um,
+            'p_1_0_um' + suffix    : sensor.p_1_0_um,
+            'p_2_5_um' + suffix    : sensor.p_2_5_um,
+            'p_5_0_um' + suffix    : sensor.p_5_0_um,
+            'p_10_0_um' + suffix   : sensor.p_10_0_um,
             'pm2.5_aqi' + suffix   : sensor.pm2_5_aqi,
             'p25aqic' + suffix     : Service.convert_rgb_to_str(sensor.p25aqic)}
         return sensor_dict
@@ -576,17 +611,25 @@ class Service(object):
             return False
         if not isinstance(sensor_data.pm1_0_atm, float):
             return False
-        if not isinstance(sensor_data.p_0_3_um, float):
-            return False
         if not isinstance(sensor_data.pm2_5_cf_1, float):
             return False
         if not isinstance(sensor_data.pm2_5_atm, float):
             return False
-        if not isinstance(sensor_data.p_0_5_um, float):
-            return False
         if not isinstance(sensor_data.pm10_0_cf_1, float):
             return False
         if not isinstance(sensor_data.pm10_0_atm, float):
+            return False
+        if not isinstance(sensor_data.p_0_3_um, float):
+            return False
+        if not isinstance(sensor_data.p_0_5_um, float):
+            return False
+        if not isinstance(sensor_data.p_1_0_um, float):
+            return False
+        if not isinstance(sensor_data.p_2_5_um, float):
+            return False
+        if not isinstance(sensor_data.p_5_0_um, float):
+            return False
+        if not isinstance(sensor_data.p_10_0_um, float):
             return False
         if not isinstance(sensor_data.pm2_5_aqi, int):
             return False
@@ -751,12 +794,16 @@ def run_tests(service_name: str, hostname: str, port: int, timeout_secs: int) ->
 def sanity_check_sensor(sensor: SensorData, suffix: str) -> None:
     assert sensor.pm1_0_cf_1 >= 0.0 and sensor.pm1_0_cf_1 < 10000.0, 'Reading returned insane pm1_0_atm%s: %f' % (suffix, sensor.pm1_0_cf_1)
     assert sensor.pm1_0_atm >= 0.0 and sensor.pm1_0_atm < 10000.0, 'Reading returned insane pm1_0_atm%s: %f' % (suffix, sensor.pm1_0_atm)
-    assert sensor.p_0_3_um >= 0.0 and sensor.p_0_3_um < 10000.0, 'Reading returned insane p_0_3_um %s: %f' % (suffix, sensor.p_0_3_um)
     assert sensor.pm2_5_cf_1 >= 0.0 and sensor.pm2_5_cf_1 < 10000.0, 'Reading returned insane pm2_5_cf_1 %s: %f' % (suffix, sensor.pm2_5_cf_1)
     assert sensor.pm2_5_atm >= 0.0 and sensor.pm2_5_atm < 10000.0, 'Reading returned insane pm2_5_atm %s: %f' % (suffix, sensor.pm2_5_atm)
-    assert sensor.p_0_5_um >= 0.0 and sensor.p_0_5_um < 10000.0, 'Reading returned insane p_0_5_um %s: %f' % (suffix, sensor.p_0_5_um)
     assert sensor.pm10_0_cf_1 >= 0.0 and sensor.pm10_0_cf_1 < 10000.0, 'Reading returned insane %s: %f' % (suffix, sensor.pm10_0_cf_1)
     assert sensor.pm10_0_atm >= 0.0 and sensor.pm10_0_atm < 10000.0, 'Reading returned insane pm10_0_atm %s: %f' % (suffix, sensor.pm10_0_atm)
+    assert sensor.p_0_3_um >= 0.0 and sensor.p_0_3_um < 10000.0, 'Reading returned insane p_0_3_um %s: %f' % (suffix, sensor.p_0_3_um)
+    assert sensor.p_0_5_um >= 0.0 and sensor.p_0_5_um < 10000.0, 'Reading returned insane p_0_5_um %s: %f' % (suffix, sensor.p_0_5_um)
+    assert sensor.p_1_0_um >= 0.0 and sensor.p_1_0_um < 10000.0, 'Reading returned insane p_1_0_um %s: %f' % (suffix, sensor.p_1_0_um)
+    assert sensor.p_2_5_um >= 0.0 and sensor.p_2_5_um < 10000.0, 'Reading returned insane p_2_5_um %s: %f' % (suffix, sensor.p_2_5_um)
+    assert sensor.p_5_0_um >= 0.0 and sensor.p_5_0_um < 10000.0, 'Reading returned insane p_5_0_um %s: %f' % (suffix, sensor.p_5_0_um)
+    assert sensor.p_10_0_um >= 0.0 and sensor.p_10_0_um < 10000.0, 'Reading returned insane p_10_0_um %s: %f' % (suffix, sensor.p_10_0_um)
     assert sensor.pm2_5_aqi >= 0 and sensor.pm2_5_aqi < 10000, 'Reading returned insane pm2_5_aqi %s: %d' % (suffix, sensor.pm2_5_aqi)
     # sensor.p25aqic
 
@@ -825,23 +872,35 @@ def test_compute_avg(reading: Reading) -> None:
         reading1.sensor.pm1_0_atm   = 0.10
         reading2.sensor.pm1_0_atm   = 0.00
 
-        reading1.sensor.p_0_3_um    = 195.13
-        reading2.sensor.p_0_3_um    = 195.17
-
         reading1.sensor.pm2_5_cf_1  = 0.58
         reading2.sensor.pm2_5_cf_1  = 0.78
 
         reading1.sensor.pm2_5_atm   = 0.77
         reading2.sensor.pm2_5_atm   = 0.88
 
-        reading1.sensor.p_0_5_um    = 51.85
-        reading2.sensor.p_0_5_um    = 47.28
-
         reading1.sensor.pm10_0_cf_1 = 0.88
         reading2.sensor.pm10_0_cf_1 = 1.03
 
         reading1.sensor.pm10_0_atm  = 0.99
         reading2.sensor.pm10_0_atm  = 1.05
+
+        reading1.sensor.p_0_3_um    = 195.13
+        reading2.sensor.p_0_3_um    = 195.17
+
+        reading1.sensor.p_0_5_um    = 51.85
+        reading2.sensor.p_0_5_um    = 47.28
+
+        reading1.sensor.p_1_0_um    = 22.6
+        reading2.sensor.p_1_0_um    = 22.8
+
+        reading1.sensor.p_2_5_um    = 52.6
+        reading2.sensor.p_2_5_um    = 52.8
+
+        reading1.sensor.p_5_0_um    = 62.6
+        reading2.sensor.p_5_0_um    = 62.8
+
+        reading1.sensor.p_10_0_um    = 72.6
+        reading2.sensor.p_10_0_um    = 72.8
 
         reading1.sensor.pm2_5_aqi   = 9
         reading2.sensor.pm2_5_aqi   = 2
@@ -873,12 +932,17 @@ def test_compute_avg(reading: Reading) -> None:
 
         assert float_eq(avg_reading.sensor.pm1_0_cf_1, 0.24), 'Expected sensor.pm1_0_cf_1: 0.24, got %f.' % avg_reading.sensor.pm1_0_cf_1
         assert float_eq(avg_reading.sensor.pm1_0_atm, 0.05), 'Expected sensor.pm1_0_atm: 0.05, got %f.' % avg_reading.sensor.pm1_0_atm
-        assert float_eq(avg_reading.sensor.p_0_3_um, 195.15), 'Expected sensor.p_0_3_um: 195.15, got %f.' % avg_reading.sensor.p_0_3_um
         assert float_eq(avg_reading.sensor.pm2_5_cf_1, 0.68), 'Expected sensor.pm2_5_cf_1: 0.68, got %f.' % avg_reading.sensor.pm2_5_cf_1
         assert float_eq(avg_reading.sensor.pm2_5_atm, 0.825), 'Expected sensor.pm2_5_atm: 0.825, got %f.' % avg_reading.sensor.pm2_5_atm
-        assert float_eq(avg_reading.sensor.p_0_5_um, 49.565), 'Expected sensor.p_0_5_um: 49.565, got %f.' % avg_reading.sensor.p_0_5_um
         assert float_eq(avg_reading.sensor.pm10_0_cf_1, 0.955), 'Expected sensor.pm10_0_cf_1: 0.955, got %f.' % avg_reading.sensor.pm10_0_cf_1
         assert float_eq(avg_reading.sensor.pm10_0_atm, 1.02), 'Expected sensor.pm10_0_atm: 1.02, got %f.' % avg_reading.sensor.pm10_0_atm
+
+        assert float_eq(avg_reading.sensor.p_0_3_um, 195.15), 'Expected sensor.p_0_3_um: 195.15, got %f.' % avg_reading.sensor.p_0_3_um
+        assert float_eq(avg_reading.sensor.p_0_5_um, 49.565), 'Expected sensor.p_0_5_um: 49.565, got %f.' % avg_reading.sensor.p_0_5_um
+        assert float_eq(avg_reading.sensor.p_1_0_um, 22.7), 'Expected sensor.p_1_0_um: 22.7, got %f.' % avg_reading.sensor.p_1_0_um
+        assert float_eq(avg_reading.sensor.p_2_5_um, 52.7), 'Expected sensor.p_2_5_um: 52.7, got %f.' % avg_reading.sensor.p_2_5_um
+        assert float_eq(avg_reading.sensor.p_5_0_um, 62.7), 'Expected sensor.p_5_0_um: 62.7, got %f.' % avg_reading.sensor.p_5_0_um
+        assert float_eq(avg_reading.sensor.p_10_0_um, 72.7), 'Expected sensor.p_10_0_um: 72.7, got %f.' % avg_reading.sensor.p_10_0_um
 
         assert avg_reading.sensor.pm2_5_aqi == 6, 'Expected sensor.pm2_5_aqi: 6, got %d.' % avg_reading.sensor.pm2_5_aqi
         assert avg_reading.sensor.p25aqic.red == 225, 'Expected sensor.p25aqic.red: 225, got %d.' % avg_reading.sensor.p25aqic.red
@@ -903,23 +967,31 @@ def create_test_reading(time_of_reading: datetime) -> Reading:
         sensor = SensorData(
             pm1_0_cf_1  = 0.1,
             pm1_0_atm   = 0.2,
-            p_0_3_um    = 0.3,
-            pm2_5_cf_1  = 0.4,
-            pm2_5_atm   = 0.5,
-            p_0_5_um    = 0.6,
-            pm10_0_cf_1 = 0.7,
-            pm10_0_atm  = 0.8,
+            pm2_5_cf_1  = 0.3,
+            pm2_5_atm   = 0.4,
+            pm10_0_cf_1 = 0.5,
+            pm10_0_atm  = 0.6,
+            p_0_3_um    = 0.7,
+            p_0_5_um    = 0.8,
+            p_1_0_um    = 0.9,
+            p_2_5_um    = 0.91,
+            p_5_0_um    = 0.92,
+            p_10_0_um   = 0.93,
             pm2_5_aqi   = 9,
             p25aqic     = RGB(10,15,20)),
         sensor_b = SensorData(
             pm1_0_cf_1  = 1.1,
             pm1_0_atm   = 1.2,
-            p_0_3_um    = 1.3,
-            pm2_5_cf_1  = 1.4,
-            pm2_5_atm   = 1.5,
-            p_0_5_um    = 1.6,
-            pm10_0_cf_1 = 1.7,
-            pm10_0_atm  = 1.8,
+            pm2_5_cf_1  = 1.3,
+            pm2_5_atm   = 1.4,
+            pm10_0_cf_1 = 1.5,
+            pm10_0_atm  = 1.6,
+            p_0_3_um    = 1.7,
+            p_0_5_um    = 1.8,
+            p_1_0_um    = 1.9,
+            p_2_5_um    = 1.91,
+            p_5_0_um    = 1.92,
+            p_10_0_um   = 1.93,
             pm2_5_aqi   = 19,
             p25aqic     = RGB(110,120,130)))
 
@@ -986,7 +1058,7 @@ def test_convert_to_json(reading1: Reading, reading2: Reading) -> None:
         reading = create_test_reading(parse('2019/12/15T03:43:05UTC', tzinfos=tzinfos))
         json_reading: str = Service.convert_to_json(reading)
 
-        expected = '{"DateTime": "2019/12/15T03:43:05z", "current_temp_f": 100, "current_humidity": 90, "current_dewpoint_f": 80, "pressure": 1234.5, "current_temp_f_680": 105, "current_humidity_680": 95, "current_dewpoint_f_680": 85, "pressure_680": 1235.6, "gas_680": 42.0, "pm1_0_cf_1": 0.1, "pm1_0_atm": 0.2, "p_0_3_um": 0.3, "pm2_5_cf_1": 0.4, "pm2_5_atm": 0.5, "p_0_5_um": 0.6, "pm10_0_cf_1": 0.7, "pm10_0_atm": 0.8, "pm2.5_aqi": 9, "p25aqic": "rgb(10,15,20)", "pm1_0_cf_1_b": 1.1, "pm1_0_atm_b": 1.2, "p_0_3_um_b": 1.3, "pm2_5_cf_1_b": 1.4, "pm2_5_atm_b": 1.5, "p_0_5_um_b": 1.6, "pm10_0_cf_1_b": 1.7, "pm10_0_atm_b": 1.8, "pm2.5_aqi_b": 19, "p25aqic_b": "rgb(110,120,130)"}'
+        expected = '{"DateTime": "2019/12/15T03:43:05z", "current_temp_f": 100, "current_humidity": 90, "current_dewpoint_f": 80, "pressure": 1234.5, "current_temp_f_680": 105, "current_humidity_680": 95, "current_dewpoint_f_680": 85, "pressure_680": 1235.6, "gas_680": 42.0, "pm1_0_cf_1": 0.1, "pm1_0_atm": 0.2, "pm2_5_cf_1": 0.3, "pm2_5_atm": 0.4, "pm10_0_cf_1": 0.5, "pm10_0_atm": 0.6, "p_0_3_um": 0.7, "p_0_5_um": 0.8, "p_1_0_um": 0.9, "p_2_5_um": 0.91, "p_5_0_um": 0.92, "p_10_0_um": 0.93, "pm2.5_aqi": 9, "p25aqic": "rgb(10,15,20)", "pm1_0_cf_1_b": 1.1, "pm1_0_atm_b": 1.2, "pm2_5_cf_1_b": 1.3, "pm2_5_atm_b": 1.4, "pm10_0_cf_1_b": 1.5, "pm10_0_atm_b": 1.6, "p_0_3_um_b": 1.7, "p_0_5_um_b": 1.8, "p_1_0_um_b": 1.9, "p_2_5_um_b": 1.91, "p_5_0_um_b": 1.92, "p_10_0_um_b": 1.93, "pm2.5_aqi_b": 19, "p25aqic_b": "rgb(110,120,130)"}'
 
         assert json_reading == expected, 'Expected json: %s, found: %s' % (expected, json_reading)
         print_passed()
