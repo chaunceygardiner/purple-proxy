@@ -8,6 +8,7 @@
   compress
   delaycompress
   notifempty
+  copytruncate
 
 # on some older systems the permissions do not propagate, so force them
 # debian uses root:adm
