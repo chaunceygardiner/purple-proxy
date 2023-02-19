@@ -39,7 +39,7 @@ from time import sleep
 from dataclasses import dataclass, field
 from typing import Any, Dict, IO, Iterator, List, Optional, Tuple
 
-PURPLEAIR_PROXY_VERSION = "2.1"
+PURPLEAIR_PROXY_VERSION = "2.2"
 
 class Logger(object):
     def __init__(self, service_name: str, log_to_stdout: bool=False, debug_mode: bool=False):
@@ -107,14 +107,18 @@ class SensorData:
 
 @dataclass
 class Reading:
-    time_of_reading   : datetime
-    current_temp_f    : int
-    current_humidity  : int
-    current_dewpoint_f: int
-    pressure          : float
-    gas_680           : Optional[float]
-    sensor            : SensorData
-    sensor_b          : Optional[SensorData]
+    time_of_reading       : datetime
+    current_temp_f        : int
+    current_humidity      : int
+    current_dewpoint_f    : int
+    pressure              : float
+    current_temp_f_680    : Optional[int]
+    current_humidity_680  : Optional[int]
+    current_dewpoint_f_680: Optional[int]
+    pressure_680          : Optional[float]
+    gas_680               : Optional[float]
+    sensor                : SensorData
+    sensor_b              : Optional[SensorData]
 
 class DatabaseAlreadyExists(Exception):
     pass
@@ -142,13 +146,17 @@ class Database(object):
                 os.makedirs(dir)
 
         create_reading_table: str = ('CREATE TABLE Reading ('
-            ' record_type        INTEGER NOT NULL,'
-            ' timestamp          INTEGER NOT NULL,'
-            ' current_temp_f     INTEGER NOT NULL,'
-            ' current_humidity   INTEGER NOT NULL,'
-            ' current_dewpoint_f INTEGER NOT NULL,'
-            ' pressure           REAL NOT NULL,'
-            ' gas_680            REAL,'
+            ' record_type            INTEGER NOT NULL,'
+            ' timestamp              INTEGER NOT NULL,'
+            ' current_temp_f         INTEGER NOT NULL,'
+            ' current_humidity       INTEGER NOT NULL,'
+            ' current_dewpoint_f     INTEGER NOT NULL,'
+            ' pressure               REAL NOT NULL,'
+            ' current_temp_f_680     INTEGER,'
+            ' current_humidity_680   INTEGER,'
+            ' current_dewpoint_f_680 INTEGER,'
+            ' pressure_680           REAL,'
+            ' gas_680                REAL,'
             ' PRIMARY KEY (record_type, timestamp));')
 
         create_sensor_table: str = ('CREATE TABLE Sensor ('
@@ -189,10 +197,13 @@ class Database(object):
             insert_reading_sql: str = ('INSERT INTO Reading ('
                 ' record_type, timestamp, current_temp_f, current_humidity, current_dewpoint_f, pressure)'
                 ' VALUES(%d, %d, %d, %d, %d, %f);' % (record_type, stamp, r.current_temp_f, r.current_humidity, r.current_dewpoint_f, r.pressure))
-        else: # A PurpleAir Flex
+        else: # A PurpleAir Flex or Zen
             insert_reading_sql: str = ('INSERT INTO Reading ('
-                ' record_type, timestamp, current_temp_f, current_humidity, current_dewpoint_f, pressure, gas_680)'
-                ' VALUES(%d, %d, %d, %d, %d, %f, %f);' % (record_type, stamp, r.current_temp_f, r.current_humidity, r.current_dewpoint_f, r.pressure, r.gas_680))
+                ' record_type, timestamp, current_temp_f, current_humidity, current_dewpoint_f, pressure, '
+                ' current_temp_f_680, current_humidity_680, current_dewpoint_f_680, pressure_680, gas_680)'
+                ' VALUES(%d, %d, %d, %d, %d, %f, %d, %d, %d, %f, %f);' % (
+                    record_type, stamp, r.current_temp_f, r.current_humidity, r.current_dewpoint_f, r.pressure,
+                    r.current_temp_f_680, r.current_humidity_680, r.current_dewpoint_f_680, r.pressure_680, r.gas_680))
         with sqlite3.connect(self.db_file, timeout=15) as conn:
             cursor = conn.cursor()
             # if a current record, delete previous current.
@@ -252,7 +263,8 @@ class Database(object):
 
     def fetch_readings(self, record_type: int, since_ts: int = 0, max_ts: Optional[int] = None, limit: Optional[int] = None) -> Iterator[Reading]:
         select: str = ('SELECT Reading.timestamp, current_temp_f,'
-            ' current_humidity, current_dewpoint_f, pressure, gas_680, sensor,'
+            ' current_humidity, current_dewpoint_f, pressure, current_temp_f_680, current_humidity_680,'
+            ' current_dewpoint_f_680, pressure_680, gas_680, sensor,'
             ' pm1_0_cf_1, pm1_0_atm, p_0_3_um, pm2_5_cf_1, pm2_5_atm, p_0_5_um,'
             ' pm10_0_cf_1, pm10_0_atm, pm2_5_aqi, p25aqi_red, p25aqi_green,'
             ' p25aqi_blue FROM Reading, Sensor WHERE Reading.record_type = %d'
@@ -276,7 +288,7 @@ class Database(object):
                     # is a sensor_b reading, add it the exising
                     # reading, then yeild it; else yield before
                     # processing this row.
-                    if row[6] == 1: # a sensor b reading
+                    if row[10] == 1: # a sensor b reading
                         reading = Database.add_to_reading_from_row(reading, row)
                         yield reading
                         reading = None
@@ -290,49 +302,53 @@ class Database(object):
 
     @staticmethod
     def create_reading_from_row(row) -> Reading:
-        if row[6] == Sensor.B:
+        if row[10] == Sensor.B:
             raise UnexpectedSensorRecord('create_reading_from_row called with a B sensor row: %r' % row)
         return Reading(
-            time_of_reading    = datetime.fromtimestamp(row[0], tz=tz.gettz('UTC')),
-            current_temp_f     = row[1],
-            current_humidity   = row[2],
-            current_dewpoint_f = row[3],
-            pressure           = row[4],
-            gas_680            = row[5],
-            sensor             = SensorData(
-                pm1_0_cf_1     = row[7],
-                pm1_0_atm      = row[8],
-                p_0_3_um       = row[9],
-                pm2_5_cf_1     = row[10],
-                pm2_5_atm      = row[11],
-                p_0_5_um       = row[12],
-                pm10_0_cf_1    = row[13],
-                pm10_0_atm     = row[14],
-                pm2_5_aqi      = row[15],
-                p25aqic        = RGB(
-                    red        = row[16],
-                    green      = row[17],
-                    blue       = row[18])),
-            sensor_b             = None)
+            time_of_reading        = datetime.fromtimestamp(row[0], tz=tz.gettz('UTC')),
+            current_temp_f         = row[1],
+            current_humidity       = row[2],
+            current_dewpoint_f     = row[3],
+            pressure               = row[4],
+            current_temp_f_680     = row[5],
+            current_humidity_680   = row[6],
+            current_dewpoint_f_680 = row[7],
+            pressure_680           = row[8],
+            gas_680                = row[9],
+            sensor                 = SensorData(
+                pm1_0_cf_1         = row[11],
+                pm1_0_atm          = row[12],
+                p_0_3_um           = row[13],
+                pm2_5_cf_1         = row[14],
+                pm2_5_atm          = row[15],
+                p_0_5_um           = row[16],
+                pm10_0_cf_1        = row[17],
+                pm10_0_atm         = row[18],
+                pm2_5_aqi          = row[19],
+                p25aqic            = RGB(
+                    red            = row[20],
+                    green          = row[21],
+                    blue           = row[22])),
+            sensor_b               = None)
 
     @staticmethod
     def add_to_reading_from_row(reading, row) -> Reading:
-        if row[6] == Sensor.A:
+        if row[10] == Sensor.A:
             raise UnexpectedSensorRecord('add_to_reading_from_row called with an A sensor row: %r' % row)
         reading.sensor_b   = SensorData(
-            pm1_0_cf_1     = row[7],
-            pm1_0_atm      = row[8],
-            p_0_3_um       = row[9],
-            pm2_5_cf_1     = row[10],
-            pm2_5_atm      = row[11],
-            p_0_5_um       = row[12],
-            pm10_0_cf_1    = row[13],
-            pm10_0_atm     = row[14],
-            pm2_5_aqi      = row[15],
+            pm1_0_cf_1     = row[11],
+            pm1_0_atm      = row[12],
+            p_0_3_um       = row[13],
+            pm2_5_cf_1     = row[14],
+            pm2_5_atm      = row[15],
+            p_0_5_um       = row[16],
+            pm10_0_cf_1    = row[17],
+            pm10_0_atm     = row[18],
+            pm2_5_aqi      = row[19],
             p25aqic        = RGB(
-                red        = row[16],
-                green      = row[17],
-                blue       = row[18]))
+                red        = row[20],
+                green      = row[21],
+                blue       = row[22]))
         return reading
 
 class Service(object):
@@ -398,15 +414,19 @@ class Service(object):
         # convert to json
         j: Dict[str, Any] = response.json()
         reading: Reading = Reading(
-            time_of_reading    = Service.datetime_from_reading(j['DateTime']),
-            current_temp_f     = j['current_temp_f'],
-            current_humidity   = j['current_humidity'],
-            current_dewpoint_f = j['current_dewpoint_f'],
-            pressure           = j['pressure'],
-            gas_680            = j['gas_680'] if 'gas_680' in j.keys() else None,
-            sensor             = Service.read_sensor(j, ''),
+            time_of_reading        = Service.datetime_from_reading(j['DateTime']),
+            current_temp_f         = j['current_temp_f'],
+            current_humidity       = j['current_humidity'],
+            current_dewpoint_f     = j['current_dewpoint_f'],
+            pressure               = j['pressure'],
+            current_temp_f_680     = j['current_temp_f_680'] if 'current_temp_f_680' in j.keys() else None,
+            current_humidity_680   = j['current_humidity_680'] if 'current_humidity_680' in j.keys() else None,
+            current_dewpoint_f_680 = j['current_dewpoint_f_680'] if 'current_dewpoint_f_680' in j.keys() else None,
+            pressure_680           = j['pressure_680'] if 'pressure_680' in j.keys() else None,
+            gas_680                = j['gas_680'] if 'gas_680' in j.keys() else None,
+            sensor                 = Service.read_sensor(j, ''),
             # Read sensor_b if one exists.
-            sensor_b           = Service.read_sensor(j, '_b') if 'pm1_0_cf_1_b' in j.keys() else None)
+            sensor_b               = Service.read_sensor(j, '_b') if 'pm1_0_cf_1_b' in j.keys() else None)
         return reading
 
     @staticmethod
@@ -464,23 +484,35 @@ class Service(object):
             summed_reading.current_dewpoint_f += reading.current_dewpoint_f
             summed_reading.pressure           += reading.pressure
             if summed_reading.gas_680 is not None and reading.gas_680 is not None:
+                summed_reading.current_temp_f_680     += reading.current_temp_f_680
+                summed_reading.current_humidity_680   += reading.current_humidity_680
+                summed_reading.current_dewpoint_f_680 += reading.current_dewpoint_f_680
+                summed_reading.pressure_680           += reading.pressure_680
                 summed_reading.gas_680        += reading.gas_680
             else:
-                summed_reading.gas_680         = None
+                summed_reading.current_temp_f_680     = None
+                summed_reading.current_humidity_680   = None
+                summed_reading.current_dewpoint_f_680 = None
+                summed_reading.pressure_680           = None
+                summed_reading.gas_680                = None
             summed_reading.sensor              = Service.sum_sensor(summed_reading.sensor, reading.sensor)
             summed_reading.sensor_b            = Service.sum_sensor(summed_reading.sensor_b, reading.sensor_b) if summed_reading.sensor_b is not None and reading.sensor_b is not None else None
 
         count: int = len(readings)
 
         return Reading(
-            time_of_reading    = summed_reading.time_of_reading,
-            current_temp_f     = int(summed_reading.current_temp_f / count + 0.5),
-            current_humidity   = int(summed_reading.current_humidity / count + 0.5),
-            current_dewpoint_f = int(summed_reading.current_dewpoint_f / count + 0.5),
-            pressure           = summed_reading.pressure / float(count),
-            gas_680            = summed_reading.gas_680 / float(count) if summed_reading.gas_680 is not None else None,
-            sensor             = Service.average_sensor(summed_reading.sensor, count),
-            sensor_b           = Service.average_sensor(summed_reading.sensor_b, count) if summed_reading.sensor_b is not None else None)
+            time_of_reading        = summed_reading.time_of_reading,
+            current_temp_f         = int(summed_reading.current_temp_f / count + 0.5),
+            current_humidity       = int(summed_reading.current_humidity / count + 0.5),
+            current_dewpoint_f     = int(summed_reading.current_dewpoint_f / count + 0.5),
+            pressure               = summed_reading.pressure / float(count),
+            current_temp_f_680     = int(summed_reading.current_temp_f_680 / count + 0.5) if summed_reading.current_temp_f_680 is not None else None,
+            current_humidity_680   = int(summed_reading.current_humidity_680 / count + 0.5) if summed_reading.current_humidity_680 is not None else None,
+            current_dewpoint_f_680 = int(summed_reading.current_dewpoint_f_680 / count + 0.5) if summed_reading.current_dewpoint_f_680 is not None else None,
+            pressure_680           = summed_reading.pressure_680 / float(count) if summed_reading.pressure_680 is not None else None,
+            gas_680                = summed_reading.gas_680 / float(count) if summed_reading.gas_680 is not None else None,
+            sensor                 = Service.average_sensor(summed_reading.sensor, count),
+            sensor_b               = Service.average_sensor(summed_reading.sensor_b, count) if summed_reading.sensor_b is not None else None)
 
     @staticmethod
     def sensor_to_dict(sensor: SensorData, suffix: str) -> Dict[str, Any]:
@@ -507,7 +539,11 @@ class Service(object):
             'pressure'          : reading.pressure}
 
         if reading.gas_680 is not None:
-            reading_dict['gas_680'] = reading.gas_680
+            reading_dict['current_temp_f_680']     = reading.current_temp_f_680
+            reading_dict['current_humidity_680']   = reading.current_humidity_680
+            reading_dict['current_dewpoint_f_680'] = reading.current_dewpoint_f_680
+            reading_dict['pressure_680']           = reading.pressure_680
+            reading_dict['gas_680']                = reading.gas_680
 
         reading_dict.update(Service.sensor_to_dict(reading.sensor, ''))
         if reading.sensor_b is not None:
@@ -569,6 +605,14 @@ class Service(object):
         if not isinstance(reading.current_dewpoint_f, int):
             return False
         if not isinstance(reading.pressure, float):
+            return False
+        if reading.current_temp_f_680 is not None and not isinstance(reading.current_temp_f_680, int):
+            return False
+        if reading.current_humidity_680 is not None and not isinstance(reading.current_humidity_680, int):
+            return False
+        if reading.current_dewpoint_f_680 is not None and not isinstance(reading.current_dewpoint_f_680, int):
+            return False
+        if reading.pressure_680 is not None and not isinstance(reading.pressure_680, float):
             return False
         if reading.gas_680 is not None and not isinstance(reading.gas_680, float):
             return False
@@ -727,6 +771,10 @@ def sanity_check_reading(reading: Reading) -> None:
         assert reading.current_humidity >= 0 and reading.current_humidity <= 100, 'Reading returned insane humidity (%d).' % reading.current_humidity
         assert reading.current_dewpoint_f > -40.0 and reading.current_dewpoint_f < 160.0, 'Reading returned insane dewpoint (%f).' % reading.current_dewpoint_f
         assert reading.pressure > 900.0 and reading.pressure < 1084.0, 'Reading returned insane pressure (%f).' % reading.pressure
+        assert reading.current_temp_f_680 is None or (reading.current_temp_f_680 > -40.0 and reading.current_temp_f_680 < 160.0), 'Reading returned insane temp_680 (%f).' % reading.current_temp_f_680
+        assert reading.current_humidity_680 is None or (reading.current_humidity_680 >= 0 and reading.current_humidity_680 <= 100), 'Reading returned insane humidity_680 (%d).' % reading.current_humidity_680
+        assert reading.current_dewpoint_f_680 is None or (reading.current_dewpoint_f_680 > -40.0 and reading.current_dewpoint_f_680 < 160.0), 'Reading returned insane dewpoint_680 (%f).' % reading.current_dewpoint_f_680
+        assert reading.pressure_680 is None or (reading.pressure_680 > 900.0 and reading.pressure_680 < 1084.0), 'Reading returned insane pressure_680 (%f).' % reading.pressure_680
         assert reading.gas_680 is None or (reading.gas_680 >= 0.0 and reading.gas_680 < 1000.0), 'Reading returned insane gas_680 (%f).' % reading.gas_680
         sanity_check_sensor(reading.sensor, '')
         if reading.sensor_b is not None:
@@ -755,6 +803,18 @@ def test_compute_avg(reading: Reading) -> None:
 
         reading1.pressure = 1026.0
         reading2.pressure = 1024.0
+
+        reading1.current_temp_f_680 = 40
+        reading2.current_temp_f_680 = 90
+
+        reading1.current_humidity_680 = 30
+        reading2.current_humidity_680 = 10
+
+        reading1.current_dewpoint_f_680 = 20
+        reading2.current_dewpoint_f_680 = 30
+
+        reading1.pressure_680 = 1022.0
+        reading2.pressure_680 = 1020.0
 
         reading1.gas_680 = 50.0
         reading2.gas_680 = 100.0
@@ -804,6 +864,11 @@ def test_compute_avg(reading: Reading) -> None:
         assert avg_reading.current_humidity == 30, 'Expected current_humidity: 30, got %d.' % avg_reading.current_humidity
         assert avg_reading.current_dewpoint_f == 35, 'Expected current_dewpoint_f: 35, got %d.' % avg_reading.current_dewpoint_f
         assert float_eq(avg_reading.pressure, 1025.0), 'Expected pressure: 1025.0, got %f.' % avg_reading.pressure
+
+        assert avg_reading.current_temp_f_680 == 65, 'Expected current_temp_f_680: 65, got %d.' % avg_reading.current_temp_f_680
+        assert avg_reading.current_humidity_680 == 20, 'Expected current_humidity_680: 20, got %d.' % avg_reading.current_humidity_680
+        assert avg_reading.current_dewpoint_f_680 == 25, 'Expected current_dewpoint_f_680: 25, got %d.' % avg_reading.current_dewpoint_f_680
+        assert float_eq(avg_reading.pressure_680, 1021.0), 'Expected pressure: 1021.0_680, got %f.' % avg_reading.pressure_680
         assert float_eq(avg_reading.gas_680, 75.0), 'Expected gas_680: 75.0, got %f.' % avg_reading.gas_680
 
         assert float_eq(avg_reading.sensor.pm1_0_cf_1, 0.24), 'Expected sensor.pm1_0_cf_1: 0.24, got %f.' % avg_reading.sensor.pm1_0_cf_1
@@ -830,6 +895,10 @@ def create_test_reading(time_of_reading: datetime) -> Reading:
         current_humidity = 90,
         current_dewpoint_f = 80,
         pressure = 1234.5,
+        current_temp_f_680 = 105,
+        current_humidity_680 = 95,
+        current_dewpoint_f_680 = 85,
+        pressure_680 = 1235.6,
         gas_680 = 42.0,
         sensor = SensorData(
             pm1_0_cf_1  = 0.1,
@@ -917,7 +986,7 @@ def test_convert_to_json(reading1: Reading, reading2: Reading) -> None:
         reading = create_test_reading(parse('2019/12/15T03:43:05UTC', tzinfos=tzinfos))
         json_reading: str = Service.convert_to_json(reading)
 
-        expected = '{"DateTime": "2019/12/15T03:43:05z", "current_temp_f": 100, "current_humidity": 90, "current_dewpoint_f": 80, "pressure": 1234.5, "gas_680": 42.0, "pm1_0_cf_1": 0.1, "pm1_0_atm": 0.2, "p_0_3_um": 0.3, "pm2_5_cf_1": 0.4, "pm2_5_atm": 0.5, "p_0_5_um": 0.6, "pm10_0_cf_1": 0.7, "pm10_0_atm": 0.8, "pm2.5_aqi": 9, "p25aqic": "rgb(10,15,20)", "pm1_0_cf_1_b": 1.1, "pm1_0_atm_b": 1.2, "p_0_3_um_b": 1.3, "pm2_5_cf_1_b": 1.4, "pm2_5_atm_b": 1.5, "p_0_5_um_b": 1.6, "pm10_0_cf_1_b": 1.7, "pm10_0_atm_b": 1.8, "pm2.5_aqi_b": 19, "p25aqic_b": "rgb(110,120,130)"}'
+        expected = '{"DateTime": "2019/12/15T03:43:05z", "current_temp_f": 100, "current_humidity": 90, "current_dewpoint_f": 80, "pressure": 1234.5, "current_temp_f_680": 105, "current_humidity_680": 95, "current_dewpoint_f_680": 85, "pressure_680": 1235.6, "gas_680": 42.0, "pm1_0_cf_1": 0.1, "pm1_0_atm": 0.2, "p_0_3_um": 0.3, "pm2_5_cf_1": 0.4, "pm2_5_atm": 0.5, "p_0_5_um": 0.6, "pm10_0_cf_1": 0.7, "pm10_0_atm": 0.8, "pm2.5_aqi": 9, "p25aqic": "rgb(10,15,20)", "pm1_0_cf_1_b": 1.1, "pm1_0_atm_b": 1.2, "p_0_3_um_b": 1.3, "pm2_5_cf_1_b": 1.4, "pm2_5_atm_b": 1.5, "p_0_5_um_b": 1.6, "pm10_0_cf_1_b": 1.7, "pm10_0_atm_b": 1.8, "pm2.5_aqi_b": 19, "p25aqic_b": "rgb(110,120,130)"}'
 
         assert json_reading == expected, 'Expected json: %s, found: %s' % (expected, json_reading)
         print_passed()

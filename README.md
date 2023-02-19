@@ -29,10 +29,9 @@ See the PurpleAir spec for the json.  In addition to that spec, the proxy adds `
 
 ## Important Instruction for those Upgrading from Version 1 to 2.
 
-You must run the following command if you are upgrading.  It add a `gas_680` coulumn to the `Reading` table which is present on
-PurpleAir Flex models (you must run this command even if you don't have a PurpleAir Flex):
-
-`echo "ALTER TABLE Reading ADD COLUMN gas_680 REAL" | sudo sqlite3 /home/purpleproxy/archive/purpleproxy.sdb`
+You must run the `update_db_columns.sh` script (found in the root directory of this repository) if you are upgrading
+from any version prior to version `2.2`.  This script adds the new (BM680) columns (found in the Flex and Zen products) to the database.
+***You must run this script  even if you don't have a PurpleAir Flex or PurpleAir Zen!***
 
 ## Installation Instructions
 
