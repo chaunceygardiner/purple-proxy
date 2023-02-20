@@ -61,7 +61,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.send_header('Accept', 'application/json')
         self.send_header('Content-Type', 'application/json')
         self.end_headers()
-        self.wfile.write(('{ error : "%s" }' % error).encode('ascii'))
+        self.wfile.write(('{ "error" : "%s" }' % error).encode('ascii'))
 
     @staticmethod
     def parse_args(args_in: str) -> Dict[str, str]:
