@@ -57,11 +57,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(json.encode('ascii'))
 
     def respond_error(self, error: str):
-        self.send_response(200)
+        self.send_error(404, message=error)
         self.send_header('Accept', 'application/json')
         self.send_header('Content-Type', 'application/json')
         self.end_headers()
-        self.wfile.write(('{ "error" : "%s" }' % error).encode('ascii'))
 
     @staticmethod
     def parse_args(args_in: str) -> Dict[str, str]:
