@@ -24,7 +24,10 @@ my $CONNECTION_TIMEOUT = 'Connection timed out';
 my $READ_TIMEOUT = 'Read timed out';
 my $NAME_UNKNOWN = 'Name or service not known';
 
-my $FETCH_CURR_RECORD = 'Fetch Current Record';
+my $FETCH_CURR_RECORD      = 'fetch-current-record';
+my $FETCH_CURR_RECORD_LIVE = 'fetch-current-record?live=true';
+my $JSON                   = 'json';
+my $JSON_LIVE              = 'json?live=true';
 
 # any lines that do not match the patterns we define
 my @unmatched = ();
@@ -73,8 +76,14 @@ while(defined($_ = <STDIN>)) {
         $errors{$READ_TIMEOUT} += 1;
     } elsif (/Failed to establish a new connection: .* Name or service not known/) {
         $errors{$NAME_UNKNOWN} += 1;
-    } elsif (/RequestType.FETCH_CURRENT_RECORD, \/fetch-current-record, .*, None/) {
+    } elsif (/RequestType.FETCH_CURRENT_RECORD, \/fetch-current-record, '', None/) {
         $counts{$FETCH_CURR_RECORD} += 1;
+    } elsif (/RequestType.FETCH_CURRENT_RECORD, \/fetch-current-record, 'live=true', None/) {
+        $counts{$FETCH_CURR_RECORD_LIVE} += 1;
+    } elsif (/RequestType.FETCH_CURRENT_RECORD, \/json, '', None/) {
+        $counts{$JSON} += 1;
+    } elsif (/RequestType.FETCH_CURRENT_RECORD, \/json, 'live=true', None/) {
+        $counts{$JSON_LIVE} += 1;
     } elsif (/host:port *:/ ||
              /conf_file *:/ ||
              /server_port *:/ ||
