@@ -5,16 +5,14 @@
 
 import http.server
 import socket
-import socketserver
-import syslog
 import threading
 
 import monitor.monitor
 
 from enum import Enum
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from json import dumps
-from typing import Any, Dict, IO, Iterator, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 VERSION = '2'
 
@@ -38,7 +36,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
     """Handle requests in a separate thread."""
     def do_GET(self):
         request =  Handler.parse_requestline(self.requestline)
-        json = ''
         if request.request_type == RequestType.GET_VERSION:
             self.respond_success(dumps({'version': VERSION}))
         elif request.request_type == RequestType.GET_EARLIEST_TIMESTAMP:
@@ -108,24 +105,25 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 if 'since_ts' in args_dict:
                     try:
                         since_ts = int(args_dict['since_ts'])
-                    except Exception as e:
+                    except Exception:
                         request_type = RequestType.ERROR
                         error =  "The since_ts argument must be an integer, found: '%s'." % args_dict['since_ts']
                     if 'max_ts' in args_dict:
                         try:
                             max_ts = int(args_dict['max_ts'])
-                        except Exception as e:
+                        except Exception:
                             request_type = RequestType.ERROR
                             error =  "The max_ts argument must be an integer, found: '%s'." % args_dict['max_ts']
                     if 'limit' in args_dict:
                         try:
                             limit = int(args_dict['limit'])
-                        except Exception as e:
+                        except Exception:
                             request_type = RequestType.ERROR
                             error =  "The limit argument must be an integer, found: '%s'." % args_dict['limit']
                 else:
                     request_type = RequestType.ERROR
                     error =  'fetch-archive-records requires since_ts argument'
+        log.info('%s: %s: %s, %r' % (request_type, cmd, args, error))
         return Request(
             request_type = request_type,
             since_ts     = since_ts,
@@ -137,12 +135,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
 db_file: Optional[str] = None
 
 def start_server(port: int):
+    log.info('start_server: port: %d' % port)
     class ThreadingHTTPServer6(http.server.ThreadingHTTPServer):
         address_family = socket.AF_INET6
     with ThreadingHTTPServer6(('::', port), Handler) as server:
         server.serve_forever()
 
-def serve_requests(port: int, db_file_in: str):
+def serve_requests(port: int, db_file_in: str, log_in):
+    global log
+    log = log_in
+    log.info('serve_requests: port: %d, db_file_in: %s' % (port, db_file_in))
     global db_file
     db_file = db_file_in
     daemon = threading.Thread(name='purpleproxy_daemon_server',
@@ -152,6 +154,7 @@ def serve_requests(port: int, db_file_in: str):
     daemon.start()
 
 if __name__ == '__main__':
+    import optparse
     def main():
         usage = """%prog [--help] --db-file <db-file> --port <port>"""
 
@@ -162,13 +165,13 @@ if __name__ == '__main__':
         parser.add_option("--port", dest="port", type=int, default=None,
                           help="The port on which to serve.  --port must be specified.")
 
+        (options, args) = parser.parse_args()
+
         if options.db_file is None:
             parser.error('db-file must be specified.')
 
         if options.port is None:
             parser.error('port must be specified.')
-
-        (options, args) = parser.parse_args()
 
         serve_requests(options.port, options.db_file)
         print('Hit return to exit...', end='')
