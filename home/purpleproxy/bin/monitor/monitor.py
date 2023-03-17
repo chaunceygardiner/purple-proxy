@@ -1192,7 +1192,7 @@ def start(args):
                                   pollfreq_offset, arcint_secs, database)
 
     log.debug('Staring server on port %d.' % server_port)
-    server.server.serve_requests(server_port, db_file)
+    server.server.serve_requests(server_port, db_file, log)
 
     log.debug('Staring mainloop.')
     purpleproxy_service.do_loop()
