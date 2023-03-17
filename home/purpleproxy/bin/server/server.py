@@ -123,7 +123,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 else:
                     request_type = RequestType.ERROR
                     error =  'fetch-archive-records requires since_ts argument'
-        log.info('%s: %s: %s, %r' % (request_type, cmd, args, error))
+        log.info('%s, %s, %r, %r' % (request_type, cmd, args, error))
         return Request(
             request_type = request_type,
             since_ts     = since_ts,

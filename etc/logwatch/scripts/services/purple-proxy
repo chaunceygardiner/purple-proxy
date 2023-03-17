@@ -24,6 +24,8 @@ my $CONNECTION_TIMEOUT = 'Connection timed out';
 my $READ_TIMEOUT = 'Read timed out';
 my $NAME_UNKNOWN = 'Name or service not known';
 
+my $FETCH_CURR_RECORD = 'Fetch Current Record';
+
 # any lines that do not match the patterns we define
 my @unmatched = ();
 
@@ -71,6 +73,8 @@ while(defined($_ = <STDIN>)) {
         $errors{$READ_TIMEOUT} += 1;
     } elsif (/Failed to establish a new connection: .* Name or service not known/) {
         $errors{$NAME_UNKNOWN} += 1;
+    } elsif (/RequestType.FETCH_CURRENT_RECORD, \/fetch-current-record, .*, None/) {
+        $counts{$FETCH_CURR_RECORD} += 1;
     } elsif (/host:port *:/ ||
              /conf_file *:/ ||
              /server_port *:/ ||
@@ -86,6 +90,9 @@ while(defined($_ = <STDIN>)) {
              /log_to_stdout *:/ ||
              /Starting .* daemon:/ ||
              /Stopping .* daemon:/ ||
+             /serve_requests: port: .*, db_file_in: / ||
+             /start_server: port: / ||
+             /RequestType.FETCH_CURRENT_RECORD:/ ||
              /debug *:/) {
         # ignore
     } else {
