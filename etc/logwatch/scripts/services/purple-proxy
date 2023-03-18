@@ -107,7 +107,7 @@ while(defined($_ = <STDIN>)) {
              /Stopping .* daemon:/ ||
              /serve_requests: port: .*, db_file_in: / ||
              /start_server: port: / ||
-             /RequestType.FETCH_CURRENT_RECORD:/ ||
+             /RequestType.FETCH_CURRENT_RECORD, / ||
              /debug *:/) {
         # ignore
     } else {
