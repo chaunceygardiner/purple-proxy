@@ -24,10 +24,11 @@ my $CONNECTION_TIMEOUT = 'Connection timed out';
 my $READ_TIMEOUT = 'Read timed out';
 my $NAME_UNKNOWN = 'Name or service not known';
 
-my $FETCH_CURR_RECORD      = 'fetch-current-record';
-my $FETCH_CURR_RECORD_LIVE = 'fetch-current-record?live=true';
-my $JSON                   = 'json';
-my $JSON_LIVE              = 'json?live=true';
+my $GET_VERSION            = 'get-version';
+my $GET_EARLIEST_TIMESTAMP = 'get-earliest-timestamp';
+my $FETCH_ARCHIVE_RECORDS  = 'fetch-archive-records';
+my $FETCH_CURRENT_RECORD   = 'fetch-current-record';
+my $REQUEST_ERRORS         = 'Request Errors';
 
 # any lines that do not match the patterns we define
 my @unmatched = ();
@@ -35,10 +36,12 @@ my @unmatched = ();
 # keep details
 my @current_insert_errors = ();
 my @archive_insert_errors = ();
+my @request_errors = ();
 
 my %itemized = (
     'Archive Insert Errors', \@archive_insert_errors,
     'Current Insert Errors', \@current_insert_errors,
+    'Request Errors'       , \@request_errors,
     );
 
 my %summaries = (
@@ -76,14 +79,17 @@ while(defined($_ = <STDIN>)) {
         $errors{$READ_TIMEOUT} += 1;
     } elsif (/Failed to establish a new connection: .* Name or service not known/) {
         $errors{$NAME_UNKNOWN} += 1;
-    } elsif (/RequestType.FETCH_CURRENT_RECORD, \/fetch-current-record, '', None/) {
-        $counts{$FETCH_CURR_RECORD} += 1;
-    } elsif (/RequestType.FETCH_CURRENT_RECORD, \/fetch-current-record, 'live=true', None/) {
-        $counts{$FETCH_CURR_RECORD_LIVE} += 1;
-    } elsif (/RequestType.FETCH_CURRENT_RECORD, \/json, '', None/) {
-        $counts{$JSON} += 1;
-    } elsif (/RequestType.FETCH_CURRENT_RECORD, \/json, 'live=true', None/) {
-        $counts{$JSON_LIVE} += 1;
+    } elsif (/request_error: fetch-archive-records requires since_ts argument/) {
+        push @request_errors, $_;
+        $errors{$REQUEST_ERRORS} += 1;
+    } elsif (/get-version: /) {
+        $counts{$GET_VERSION} += 1;
+    } elsif (/fetch-current-record/) {
+        $counts{$FETCH_CURRENT_RECORD} += 1;
+    } elsif (/fetch-archive-records/) {
+        $counts{$FETCH_ARCHIVE_RECORDS} += 1;
+    } elsif (/get-earliest-timestamp: /) {
+        $counts{$GET_EARLIEST_TIMESTAMP} += 1;
     } elsif (/host:port *:/ ||
              /conf_file *:/ ||
              /server_port *:/ ||

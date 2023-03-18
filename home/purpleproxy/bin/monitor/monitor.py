@@ -11,11 +11,9 @@ Write an average readings every --archive-interval-secs to a file.
 
 import calendar
 import copy
-import json
 import optparse
 import os
 import requests
-import shutil
 import sqlite3
 import sys
 import syslog
@@ -29,15 +27,14 @@ import configobj
 
 from datetime import datetime
 from datetime import timedelta
-from datetime import timezone
 from dateutil import tz
 from dateutil.parser import parse
 from enum import Enum
 from json import dumps
 from time import sleep
 
-from dataclasses import dataclass, field
-from typing import Any, Dict, IO, Iterator, List, Optional, Tuple
+from dataclasses import dataclass
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 PURPLEAIR_PROXY_VERSION = "2.3"
 
@@ -243,6 +240,7 @@ class Database(object):
 
     def fetch_current_reading_as_json(self) -> str:
         for reading in self.fetch_current_readings():
+            log.info('fetch-current-record')
             return Service.convert_to_json(reading)
         return '{}'
 
@@ -257,7 +255,7 @@ class Database(object):
                 log.debug('get-earliest-timestamp: returned %s' % row[0])
                 resp['timestamp'] = row[0]
                 break
-        log.debug('get-earliest-timestamp: returning: %s' % dumps(resp))
+        log.info('get-earliest-timestamp: %s' % dumps(resp))
         return dumps(resp)
 
     def fetch_archive_readings(self, since_ts: int = 0, max_ts: Optional[int] = None, limit: Optional[int] = None) -> Iterator[Reading]:
@@ -269,6 +267,7 @@ class Database(object):
             if contents != '':
                 contents += ','
             contents += Service.convert_to_json(reading)
+        log.info('fetch-archive-records')
         return '[  %s ]' % contents
 
     def fetch_readings(self, record_type: int, since_ts: int = 0, max_ts: Optional[int] = None, limit: Optional[int] = None) -> Iterator[Reading]:
@@ -429,7 +428,6 @@ class Service(object):
     def datetime_from_reading(dt_str: str) -> datetime:
         time_of_reading_str: str = dt_str.replace('z', 'UTC')
         tzinfos = {'CST': tz.gettz("UTC")}
-        tmp = parse(time_of_reading_str, tzinfos=tzinfos)
         return parse(time_of_reading_str, tzinfos=tzinfos)
 
     @staticmethod
@@ -732,7 +730,6 @@ class Service(object):
                         (avg_reading.time_of_reading + timedelta(seconds=5)).utctimetuple())
                     archive_ts = int(reading_plus_5s_ts / self.arcint_secs) * self.arcint_secs
                     avg_reading.time_of_reading = datetime.fromtimestamp(archive_ts, tz=tz.gettz('UTC'))
-                json_reading: str = Service.convert_to_json(avg_reading)
                 try:
                     start = Service.utc_now()
                     self.database.save_current_reading(avg_reading)
@@ -1096,7 +1093,7 @@ def get_configuration(config_file):
         config_dict = configobj.ConfigObj(config_file, file_error=True, encoding='utf-8')
     except IOError:
         raise CantOpenConfigFile("Unable to open configuration file %s" % config_file)
-    except configobj.ConfigObjError as e:
+    except configobj.ConfigObjError:
         raise CantParseConfigFile("Error parsing configuration file %s", config_file)
 
     return config_dict

@@ -38,6 +38,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         request =  Handler.parse_requestline(self.requestline)
         if request.request_type == RequestType.GET_VERSION:
             self.respond_success(dumps({'version': VERSION}))
+            log.info('get-version: %s' % VERSION)
         elif request.request_type == RequestType.GET_EARLIEST_TIMESTAMP:
             self.respond_success(monitor.monitor.Database(db_file).get_earliest_timestamp_as_json())
         elif request.request_type == RequestType.FETCH_CURRENT_RECORD:
@@ -45,6 +46,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         elif request.request_type == RequestType.FETCH_ARCHIVE_RECORDS:
             self.respond_success(monitor.monitor.Database(db_file).fetch_archive_readings_as_json(request.since_ts, request.max_ts, request.limit))
         else:
+            log.info('request_error: %s' % request.error)
             self.respond_error(request.error)
 
     def respond_success(self, json: str) -> None:
@@ -123,7 +125,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 else:
                     request_type = RequestType.ERROR
                     error =  'fetch-archive-records requires since_ts argument'
-        log.info('%s, %s, %r, %r' % (request_type, cmd, args, error))
         return Request(
             request_type = request_type,
             since_ts     = since_ts,
@@ -135,7 +136,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
 db_file: Optional[str] = None
 
 def start_server(port: int):
-    log.info('start_server: port: %d' % port)
     class ThreadingHTTPServer6(http.server.ThreadingHTTPServer):
         address_family = socket.AF_INET6
     with ThreadingHTTPServer6(('::', port), Handler) as server:
@@ -144,7 +144,6 @@ def start_server(port: int):
 def serve_requests(port: int, db_file_in: str, log_in):
     global log
     log = log_in
-    log.info('serve_requests: port: %d, db_file_in: %s' % (port, db_file_in))
     global db_file
     db_file = db_file_in
     daemon = threading.Thread(name='purpleproxy_daemon_server',
