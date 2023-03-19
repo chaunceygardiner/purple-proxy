@@ -9,7 +9,7 @@
 import monitor.monitor
 import sys
 
-PURPLE_PROXY_SERVICE_VERSION = "2.3"
+PURPLE_PROXY_SERVICE_VERSION = "3.0"
 
 if __name__ == "__main__":
     def main():

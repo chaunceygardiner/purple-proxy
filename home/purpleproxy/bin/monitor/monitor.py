@@ -36,7 +36,7 @@ from time import sleep
 from dataclasses import dataclass
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
-PURPLEAIR_PROXY_VERSION = "2.3"
+PURPLEAIR_PROXY_VERSION = "3.0"
 
 class Logger(object):
     def __init__(self, service_name: str, log_to_stdout: bool=False, debug_mode: bool=False):
