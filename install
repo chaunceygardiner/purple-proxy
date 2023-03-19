@@ -67,7 +67,7 @@ echo "hostname = $sensor" >> ${target_dir}/purpleproxy.conf
 echo "port = 80" >> ${target_dir}/purpleproxy.conf
 echo "timeout-secs = 15" >> ${target_dir}/purpleproxy.conf
 echo "server-port = 8000" >> ${target_dir}/purpleproxy.conf
-echo "poll-freq-secs = 30" >> ${target_dir}/purpleproxy.conf
+echo "poll-freq-secs = 10" >> ${target_dir}/purpleproxy.conf
 echo "archive-interval-secs = $archive_interval_seconds" >> ${target_dir}/purpleproxy.conf
 echo "database-file = ${target_dir}/archive/purpleproxy.sdb" >> ${target_dir}/purpleproxy.conf
 

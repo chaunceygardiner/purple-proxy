@@ -125,8 +125,9 @@ class DatabaseAlreadyExists(Exception):
     pass
 
 class RecordType:
-    CURRENT: int = 0
-    ARCHIVE: int = 1
+    CURRENT   : int = 0
+    ARCHIVE   : int = 1
+    TWO_MINUTE: int = 2
 
 class Sensor:
     A: int = 0
@@ -193,6 +194,9 @@ class Database(object):
     def save_current_reading(self, r: Reading) -> None:
         self.save_reading(RecordType.CURRENT, r)
 
+    def save_two_minute_reading(self, r: Reading) -> None:
+        self.save_reading(RecordType.TWO_MINUTE, r)
+
     def save_archive_reading(self, r: Reading) -> None:
         self.save_reading(RecordType.ARCHIVE, r)
 
@@ -203,18 +207,24 @@ class Database(object):
                 ' record_type, timestamp, current_temp_f, current_humidity, current_dewpoint_f, pressure)'
                 ' VALUES(%d, %d, %d, %d, %d, %f);' % (record_type, stamp, r.current_temp_f, r.current_humidity, r.current_dewpoint_f, r.pressure))
         else: # A PurpleAir Flex or Zen
-            insert_reading_sql: str = ('INSERT INTO Reading ('
-                ' record_type, timestamp, current_temp_f, current_humidity, current_dewpoint_f, pressure, '
-                ' current_temp_f_680, current_humidity_680, current_dewpoint_f_680, pressure_680, gas_680)'
-                ' VALUES(%d, %d, %d, %d, %d, %f, %d, %d, %d, %f, %f);' % (
-                    record_type, stamp, r.current_temp_f, r.current_humidity, r.current_dewpoint_f, r.pressure,
-                    r.current_temp_f_680, r.current_humidity_680, r.current_dewpoint_f_680, r.pressure_680, r.gas_680))
+            if r.current_temp_f_680 is not None and r.current_humidity_680 is not None and r.current_dewpoint_f_680 is not None and r.pressure_680 is not None:
+                insert_reading_sql = ('INSERT INTO Reading ('
+                    ' record_type, timestamp, current_temp_f, current_humidity, current_dewpoint_f, pressure, '
+                    ' current_temp_f_680, current_humidity_680, current_dewpoint_f_680, pressure_680, gas_680)'
+                    ' VALUES(%d, %d, %d, %d, %d, %f, %d, %d, %d, %f, %f);' % (
+                        record_type, stamp, r.current_temp_f, r.current_humidity, r.current_dewpoint_f, r.pressure,
+                        r.current_temp_f_680, r.current_humidity_680, r.current_dewpoint_f_680, r.pressure_680, r.gas_680))
+            else:
+                log.error('Skipping saving reading(%s): gas_680 present, but temp_f_680, humidity_680, dewpoint_f_680 or pressure_680 is None: %r' % (record_type, r))
         with sqlite3.connect(self.db_file, timeout=15) as conn:
             cursor = conn.cursor()
-            # if a current record, delete previous current.
+            # if a current record or two minute record, delete previous current.
             if record_type == RecordType.CURRENT:
                 cursor.execute('DELETE FROM Reading where record_type = %d;' % RecordType.CURRENT)
                 cursor.execute('DELETE FROM Sensor where record_type = %d;' % RecordType.CURRENT)
+            if record_type == RecordType.TWO_MINUTE:
+                cursor.execute('DELETE FROM Reading where record_type = %d;' % RecordType.TWO_MINUTE)
+                cursor.execute('DELETE FROM Sensor where record_type = %d;' % RecordType.TWO_MINUTE)
             # Now insert.
             cursor.execute(insert_reading_sql)
             # Save the sensor reading(s)
@@ -241,6 +251,15 @@ class Database(object):
     def fetch_current_reading_as_json(self) -> str:
         for reading in self.fetch_current_readings():
             log.info('fetch-current-record')
+            return Service.convert_to_json(reading)
+        return '{}'
+
+    def fetch_two_minute_readings(self) -> Iterator[Reading]:
+        return self.fetch_readings(RecordType.TWO_MINUTE, 0)
+
+    def fetch_two_minute_reading_as_json(self) -> str:
+        for reading in self.fetch_two_minute_readings():
+            log.info('fetch-two-minute-record')
             return Service.convert_to_json(reading)
         return '{}'
 
@@ -512,7 +531,11 @@ class Service(object):
             summed_reading.current_humidity   += reading.current_humidity
             summed_reading.current_dewpoint_f += reading.current_dewpoint_f
             summed_reading.pressure           += reading.pressure
-            if summed_reading.gas_680 is not None and reading.gas_680 is not None:
+            if (summed_reading.current_temp_f_680 is not None and reading.current_temp_f_680 is not None
+                    and summed_reading.current_humidity_680 is not None and reading.current_humidity_680 is not None
+                    and summed_reading.current_dewpoint_f_680 is not None and reading.current_dewpoint_f_680 is not None
+                    and summed_reading.pressure_680 is not None and reading.pressure_680 is not None
+                    and summed_reading.gas_680 is not None and reading.gas_680 is not None):
                 summed_reading.current_temp_f_680     += reading.current_temp_f_680
                 summed_reading.current_humidity_680   += reading.current_humidity_680
                 summed_reading.current_dewpoint_f_680 += reading.current_dewpoint_f_680
@@ -636,6 +659,12 @@ class Service(object):
         return True
 
     @staticmethod
+    def trim_two_minute_readings(two_minute_readings: List[Reading]) -> None:
+        two_minutes_ago: datetime = datetime.now(tz=tz.gettz('UTC')) - timedelta(seconds=120)
+        while len(two_minute_readings) > 0 and two_minute_readings[0].time_of_reading < two_minutes_ago:
+            two_minute_readings.pop(0)
+
+    @staticmethod
     def is_sane(reading: Reading) -> bool:
         if not isinstance(reading.time_of_reading, datetime):
             return False
@@ -675,7 +704,8 @@ class Service(object):
         return event, secs_to_event
 
     def do_loop(self) -> None:
-        readings: List[Reading] = []
+        archive_readings   : List[Reading] = []
+        two_minute_readings: List[Reading] = []
 
         first_time: bool = True
         log.debug('Started main loop.')
@@ -686,16 +716,28 @@ class Service(object):
             first_time = False
             sleep(secs_to_event)
 
+            # Always trim two_minute_readings
+            Service.trim_two_minute_readings(two_minute_readings)
+
             # Write a reading and possibly write an archive record.
             try:
-                # collect another reading and add it to readings
+                # collect another reading and add it to archive_readings, two_minute_readings
                 start = Service.utc_now()
                 if session is None:
                     session= requests.Session()
                 reading: Reading = Service.collect_data(session, self.hostname, self.port, self.timeout_secs)
                 log.debug('Read sensor in %d seconds.' % (Service.utc_now() - start).seconds)
                 if Service.is_sane(reading):
-                    readings.append(reading)
+                    archive_readings.append(reading)
+                    two_minute_readings.append(reading)
+                    # Save this reading as the current reading
+                    try:
+                        start = Service.utc_now()
+                        self.database.save_current_reading(reading)
+                        log.debug('Saved current reading %s in %d seconds.' %
+                            (Service.datetime_display(reading.time_of_reading), (Service.utc_now() - start).seconds))
+                    except Exception as e:
+                        log.critical('Could not save current reading to database: %s: %s' % (self.database, e))
                 else:
                     log.error('Reading found insane: %s' % reading)
             except Exception as e:
@@ -708,45 +750,47 @@ class Service(object):
                     log.info('Non-fatal: calling session.close(): %s' % e)
                 finally:
                     session = None
-                if len(readings) == 0 and event == event.ARCHIVE:
-                    log.error('Skipping archive record because there have been zero readings this archive period.')
 
-            # May or may not have a new reading.  If reading not sane or
-            # exception, the reading isn't added to readings.
+            # Write two minute avg reading.
+            if len(two_minute_readings) == 0:
+                log.error('Skipping two_minute record because there have been zero readings this two minute period.')
+            else:
+                avg_reading: Reading = Service.compute_avg(two_minute_readings)
+                avg_reading.time_of_reading = two_minute_readings[-1].time_of_reading
+                try:
+                    start = Service.utc_now()
+                    self.database.save_two_minute_reading(avg_reading)
+                    log.debug('Saved two minute reading %s in %d seconds (%d samples).' %
+                        (Service.datetime_display(avg_reading.time_of_reading), (Service.utc_now() - start).seconds, len(two_minute_readings)))
+                except Exception as e:
+                    log.critical('Could not save two minute reading to database: %s: %s' % (self.database, e))
 
             # compute averages from records and write to database
             # if archive time, also write an archive record
-            if len(readings) > 0:
-                avg_reading: Reading = Service.compute_avg(readings)
-                avg_reading.time_of_reading = Service.utc_now()
-                # We care more about the timestamp for archive cycles as we
-                # are writing permanent archive records.  As such, we
-                # want these times to align exactly with the archive cycle.
-                # ARCHIVE cycles might be used for backfilling.
-                if event == event.ARCHIVE:
+            if event == event.ARCHIVE:
+                if len(archive_readings) == 0:
+                    log.error('Skipping archive record because there have been zero readings this archive period.')
+                else: 
+                    avg_reading = Service.compute_avg(archive_readings)
+                    avg_reading.time_of_reading = Service.utc_now()
+                    # We care more about the timestamp for archive cycles as we
+                    # are writing permanent archive records.  As such, we
+                    # want these times to align exactly with the archive cycle.
+                    # ARCHIVE cycles might be used for backfilling.
                     # The plus five seconds is to guard against this routine
                     # running a few seconds early.
                     reading_plus_5s_ts = calendar.timegm(
                         (avg_reading.time_of_reading + timedelta(seconds=5)).utctimetuple())
                     archive_ts = int(reading_plus_5s_ts / self.arcint_secs) * self.arcint_secs
                     avg_reading.time_of_reading = datetime.fromtimestamp(archive_ts, tz=tz.gettz('UTC'))
-                try:
-                    start = Service.utc_now()
-                    self.database.save_current_reading(avg_reading)
-                    log.debug('Saved current reading in %d seconds.' % (Service.utc_now() - start).seconds)
-                    log.debug('Saved current reading %s to database.  Reading contains %d samples.'
-                        % (Service.datetime_display(avg_reading.time_of_reading), len(readings)))
-                except Exception as e:
-                    log.critical('Could not save current reading to database: %s: %s' % (self.database, e))
-                if event == event.ARCHIVE:
                     try:
                         start = Service.utc_now()
                         self.database.save_archive_reading(avg_reading)
                         log.debug('Saved archive reading in %d seconds.' % (Service.utc_now() - start).seconds)
                         log.info('Added record %s to archive (%d samples).'
-                            % (Service.datetime_display(avg_reading.time_of_reading), len(readings)))
-                        # Reset readings for new archive cycle.
-                        readings.clear()
+                            % (Service.datetime_display(avg_reading.time_of_reading), len(archive_readings)))
+                        # Reset archive_readings for new archive cycle.
+                        archive_readings.clear()
                     except Exception as e:
                         log.critical('Could not save archive reading to database: %s: %s' % (self.database, e))
 
@@ -921,11 +965,11 @@ def test_compute_avg(reading: Reading) -> None:
         assert avg_reading.current_dewpoint_f == 35, 'Expected current_dewpoint_f: 35, got %d.' % avg_reading.current_dewpoint_f
         assert float_eq(avg_reading.pressure, 1025.0), 'Expected pressure: 1025.0, got %f.' % avg_reading.pressure
 
-        assert avg_reading.current_temp_f_680 == 65, 'Expected current_temp_f_680: 65, got %d.' % avg_reading.current_temp_f_680
-        assert avg_reading.current_humidity_680 == 20, 'Expected current_humidity_680: 20, got %d.' % avg_reading.current_humidity_680
-        assert avg_reading.current_dewpoint_f_680 == 25, 'Expected current_dewpoint_f_680: 25, got %d.' % avg_reading.current_dewpoint_f_680
-        assert float_eq(avg_reading.pressure_680, 1021.0), 'Expected pressure: 1021.0_680, got %f.' % avg_reading.pressure_680
-        assert float_eq(avg_reading.gas_680, 75.0), 'Expected gas_680: 75.0, got %f.' % avg_reading.gas_680
+        assert avg_reading.current_temp_f_680 == 65, 'Expected current_temp_f_680: 65, got %r.' % avg_reading.current_temp_f_680
+        assert avg_reading.current_humidity_680 == 20, 'Expected current_humidity_680: 20, got %r.' % avg_reading.current_humidity_680
+        assert avg_reading.current_dewpoint_f_680 == 25, 'Expected current_dewpoint_f_680: 25, got %r.' % avg_reading.current_dewpoint_f_680
+        assert float_eq(avg_reading.pressure_680, 1021.0), 'Expected pressure: 1021.0_680, got %r.' % avg_reading.pressure_680
+        assert float_eq(avg_reading.gas_680, 75.0), 'Expected gas_680: 75.0, got %r.' % avg_reading.gas_680
 
         assert float_eq(avg_reading.sensor.pm1_0_cf_1, 0.24), 'Expected sensor.pm1_0_cf_1: 0.24, got %f.' % avg_reading.sensor.pm1_0_cf_1
         assert float_eq(avg_reading.sensor.pm1_0_atm, 0.05), 'Expected sensor.pm1_0_atm: 0.05, got %f.' % avg_reading.sensor.pm1_0_atm
@@ -992,8 +1036,13 @@ def create_test_reading(time_of_reading: datetime) -> Reading:
             pm2_5_aqi   = 19,
             p25aqic     = RGB(110,120,130)))
 
-def float_eq(v1: float, v2: float) -> bool:
-    return abs(v1 - v2) < 0.0001
+def float_eq(v1: Optional[float], v2: Optional[float]) -> bool:
+    if v1 is None and v2 is None:
+        return True
+    elif v1 is None or v2 is None:
+        return False
+    else:
+        return abs(v1 - v2) < 0.0001
 
 def test_db_archive_records(service_name: str, reading_in: Reading) -> None:
     try:

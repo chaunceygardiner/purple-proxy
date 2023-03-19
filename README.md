@@ -7,18 +7,18 @@ purple-proxy works in the backround querying the PurpleAir sensor and answers qu
 
 ### Why not query the sensor directly?
 * The proxy can handle a higher load, even when running on a Raspberry Pi.
-* The proxy will answer the query with an average over the last N seconds (where N is configurable).
 * The proxy will archive average readings every N seconds.  These archives are availble to be queried.
 * For PurpleAir outdoor devices, that have two sensors, the proxy will answer with both readings plus an average between the two.
 * Developed with WeeWX weather software in mind. Use with the [weewx-purple](https://github.com/chaunceygardiner/weewx-purple)
   plugin.
 
 ### Rest API
-* `/json` Identical to quering the device directly (but also includes the averages in the json).
-   (Provided so that clients that don't know about the proxy can still use the proxy and get averaged readings).
-* `/get-version' Returns the version of the proxy command set (currently, '1').
+* `/json` Identical to quering the device directly (returns an average of readings over the last two minutes).
+* `/json?live=true` Identical to quering the device directly (returns the latest reading).
+* `/get-version' Returns the version of the proxy command set (currently, '3').
 * `/get-earliest-timestamp' Returns the the timestamp of the oldest record in the database.
-* `/fetch-current-record` Same as `/json`.
+* `/fetch-two-minute-record` Same as `/json` (see above).
+* `/fetch-current-record` Same as `/json?live=true` (see above).
 * `/fetch-archive-records?since_ts=<timestamp>` Fetches all archive records >= <timestamp> (i.e., seconds since the epoch).
 * `/fetch-archive-records?since_ts=<since_ts>,max_ts=<max_ts>` Fetches all archive records > <since_ts> and <= <max_ts>.
 * `/fetch-archive-records?since_ts=<since_ts>,limit=<count>` Fetches up to <count> records  > <since_ts>.

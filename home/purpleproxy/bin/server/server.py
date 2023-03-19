@@ -14,14 +14,15 @@ from dataclasses import dataclass
 from json import dumps
 from typing import Dict, List, Optional
 
-VERSION = '2'
+VERSION = '3'
 
 class RequestType(Enum):
-    ERROR                  = 0
-    GET_VERSION            = 1
-    GET_EARLIEST_TIMESTAMP = 2
-    FETCH_CURRENT_RECORD   = 3
-    FETCH_ARCHIVE_RECORDS  = 4
+    ERROR                   = 0
+    GET_VERSION             = 1
+    GET_EARLIEST_TIMESTAMP  = 2
+    FETCH_CURRENT_RECORD    = 3
+    FETCH_TWO_MINUTE_RECORD = 4
+    FETCH_ARCHIVE_RECORDS   = 5
 
 @dataclass
 class Request:
@@ -43,6 +44,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.respond_success(monitor.monitor.Database(db_file).get_earliest_timestamp_as_json())
         elif request.request_type == RequestType.FETCH_CURRENT_RECORD:
             self.respond_success(monitor.monitor.Database(db_file).fetch_current_reading_as_json())
+        elif request.request_type == RequestType.FETCH_TWO_MINUTE_RECORD:
+            self.respond_success(monitor.monitor.Database(db_file).fetch_two_minute_reading_as_json())
         elif request.request_type == RequestType.FETCH_ARCHIVE_RECORDS:
             self.respond_success(monitor.monitor.Database(db_file).fetch_archive_readings_as_json(request.since_ts, request.max_ts, request.limit))
         else:
@@ -87,14 +90,20 @@ class Handler(http.server.BaseHTTPRequestHandler):
         max_ts: Optional[int] = None
         limit: Optional[int] = None
         error: Optional[str] = None
-        if cmd == '/get-version':
+        if cmd == '/json' and args != '' and args != 'live=true':
+            error = 'If json cmd is specified, args must be empty or live=true.'
+        elif cmd == '/get-version':
             request_type = RequestType.GET_VERSION
         elif cmd == '/get-earliest-timestamp':
             request_type = RequestType.GET_EARLIEST_TIMESTAMP
-        elif cmd == '/fetch-current-record' or cmd == '/json':
-            # /json is treated as /fetch-current-record so that
+        elif cmd == '/fetch-current-record' or (cmd == '/json' and args == 'live=true'):
+            # /json?live=true is treated as /fetch-current-record so that
             # the monitor can mimick the device itself
             request_type = RequestType.FETCH_CURRENT_RECORD
+        elif cmd == '/fetch-two-minute-record' or cmd == '/json':
+            # /json is treated as /fetch-two-minute-record so that
+            # the monitor can mimick the device itself
+            request_type = RequestType.FETCH_TWO_MINUTE_RECORD
         elif cmd == '/fetch-archive-records':
             request_type = RequestType.FETCH_ARCHIVE_RECORDS
         elif cmd == '/':
