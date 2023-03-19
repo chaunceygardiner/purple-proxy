@@ -451,23 +451,27 @@ class Service(object):
 
     @staticmethod
     def parse_response(response: requests.Response) -> Reading:
-        # convert to json
-        j: Dict[str, Any] = response.json()
-        reading: Reading = Reading(
-            time_of_reading        = Service.datetime_from_reading(j['DateTime']),
-            current_temp_f         = j['current_temp_f'],
-            current_humidity       = j['current_humidity'],
-            current_dewpoint_f     = j['current_dewpoint_f'],
-            pressure               = j['pressure'],
-            current_temp_f_680     = j['current_temp_f_680'] if 'current_temp_f_680' in j.keys() else None,
-            current_humidity_680   = j['current_humidity_680'] if 'current_humidity_680' in j.keys() else None,
-            current_dewpoint_f_680 = j['current_dewpoint_f_680'] if 'current_dewpoint_f_680' in j.keys() else None,
-            pressure_680           = j['pressure_680'] if 'pressure_680' in j.keys() else None,
-            gas_680                = j['gas_680'] if 'gas_680' in j.keys() else None,
-            sensor                 = Service.read_sensor(j, ''),
-            # Read sensor_b if one exists.
-            sensor_b               = Service.read_sensor(j, '_b') if 'pm1_0_cf_1_b' in j.keys() else None)
-        return reading
+        try:
+            # convert to json
+            j: Dict[str, Any] = response.json()
+            reading: Reading = Reading(
+                time_of_reading        = Service.datetime_from_reading(j['DateTime']),
+                current_temp_f         = j['current_temp_f'],
+                current_humidity       = j['current_humidity'],
+                current_dewpoint_f     = j['current_dewpoint_f'],
+                pressure               = j['pressure'],
+                current_temp_f_680     = j['current_temp_f_680'] if 'current_temp_f_680' in j.keys() else None,
+                current_humidity_680   = j['current_humidity_680'] if 'current_humidity_680' in j.keys() else None,
+                current_dewpoint_f_680 = j['current_dewpoint_f_680'] if 'current_dewpoint_f_680' in j.keys() else None,
+                pressure_680           = j['pressure_680'] if 'pressure_680' in j.keys() else None,
+                gas_680                = j['gas_680'] if 'gas_680' in j.keys() else None,
+                sensor                 = Service.read_sensor(j, ''),
+                # Read sensor_b if one exists.
+                sensor_b               = Service.read_sensor(j, '_b') if 'pm1_0_cf_1_b' in j.keys() else None)
+            return reading
+        except Exception as e:
+            log.info('parse_response: %r raised exception %r' % (response, e))
+            raise e
 
     @staticmethod
     def sum_rgb(rgb1: RGB, rgb2: RGB) -> RGB:
@@ -710,11 +714,15 @@ class Service(object):
         first_time: bool = True
         log.debug('Started main loop.')
         session: Optional[requests.Session] = None
+
         while True:
-            # sleep until next event
-            event, secs_to_event = self.compute_next_event(first_time)
-            first_time = False
-            sleep(secs_to_event)
+            if first_time:
+                first_time = False
+                event = Event.POLL
+            else:
+                # sleep until next event
+                event, secs_to_event = self.compute_next_event(first_time)
+                sleep(secs_to_event)
 
             # Always trim two_minute_readings
             Service.trim_two_minute_readings(two_minute_readings)
