@@ -672,6 +672,9 @@ class Service(object):
     def is_sane(reading: Reading) -> bool:
         if not isinstance(reading.time_of_reading, datetime):
             return False
+        # Reject reading time that differs from now by more than 20s.
+        if abs((Service.utc_now() - reading.time_of_reading).seconds) > 20:
+            return False
         if not isinstance(reading.current_temp_f, int):
             return False
         if not isinstance(reading.current_humidity, int):
