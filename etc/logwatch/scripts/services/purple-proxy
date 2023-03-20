@@ -20,6 +20,7 @@ my $CURRENT_INSERT_ERRORS = 'Current Insert Errors';
 my $TMP_NAME_RESOLUTON_ERRORS = 'Tmp Name Resolution Errors';
 my $NO_ROUTE_TO_HOST_ERRORS = 'No Route to Host';
 my $SKIPPED_ARCHIVE_RECORDS = 'Skipped archive records';
+my $SKIPPED_2M_RECORDS = 'Skipped 2 min. records';
 my $CONNECTION_REFUSED = 'Connection refused';
 my $CONNECTION_TIMEOUT = 'Connection timed out';
 my $READ_TIMEOUT = 'Read timed out';
@@ -30,21 +31,24 @@ my $GET_EARLIEST_TIMESTAMP  = 'get-earliest-timestamp';
 my $FETCH_ARCHIVE_RECORDS   = 'fetch-archive-records';
 my $FETCH_TWO_MINUTE_RECORD = 'fetch-two-minute-record';
 my $FETCH_CURRENT_RECORD    = 'fetch-current-record';
+my $INSANE_READING          = 'Insane Reading Errors';
 my $REQUEST_ERRORS          = 'Request Errors';
 
 # any lines that do not match the patterns we define
 my @unmatched = ();
 
 # keep details
-my @current_insert_errors = ();
-my @two_minute_insert_errors = ();
 my @archive_insert_errors = ();
+my @current_insert_errors = ();
+my @insane_reading_errors = ();
+my @two_minute_insert_errors = ();
 my @request_errors = ();
 
 my %itemized = (
     'Archive Insert Errors'   , \@archive_insert_errors,
     'Two Minute Insert Errors', \@two_minute_insert_errors,
     'Current Insert Errors'   , \@current_insert_errors,
+    'Insane Reading Errors'   , \@insane_reading_errors,
     'Request Errors'          , \@request_errors,
     );
 
@@ -99,6 +103,11 @@ while(defined($_ = <STDIN>)) {
         $counts{$FETCH_ARCHIVE_RECORDS} += 1;
     } elsif (/get-earliest-timestamp: /) {
         $counts{$GET_EARLIEST_TIMESTAMP} += 1;
+    } elsif (/Reading found insane: Reading/) {
+        $errors{$INSANE_READING} += 1;
+        push @insane_reading_errors, $_;
+    } elsif (/Skipping two_minute record because there have been zero readings this two minute period\./) {
+        $errors{$SKIPPED_2M_RECORDS} += 1;
     } elsif (/host:port *:/ ||
              /conf_file *:/ ||
              /server_port *:/ ||
