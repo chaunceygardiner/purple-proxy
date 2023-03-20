@@ -470,7 +470,7 @@ class Service(object):
                 sensor_b               = Service.read_sensor(j, '_b') if 'pm1_0_cf_1_b' in j.keys() else None)
             return reading
         except Exception as e:
-            log.info('parse_response: %r raised exception %r' % (response, e))
+            log.info('parse_response: %r raised exception %r' % (response.text, e))
             raise e
 
     @staticmethod
