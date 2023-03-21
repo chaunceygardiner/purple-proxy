@@ -631,36 +631,36 @@ class Service(object):
         return datetime.now(tz=tz.gettz('UTC'))
 
     @staticmethod
-    def is_sensor_sane(sensor_data: SensorData) -> bool:
+    def is_sensor_sane(sensor_data: SensorData) -> Tuple[bool, str]:
         if not isinstance(sensor_data.pm1_0_cf_1, float):
-            return False
+            return False, 'pm1_0_cf_1 not instance of float'
         if not isinstance(sensor_data.pm1_0_atm, float):
-            return False
+            return False, 'pm1_0_atm not instance of float'
         if not isinstance(sensor_data.pm2_5_cf_1, float):
-            return False
+            return False, 'pm2_5_cf_1 not instance of float'
         if not isinstance(sensor_data.pm2_5_atm, float):
-            return False
+            return False, 'pm2_5_atm not instance of float'
         if not isinstance(sensor_data.pm10_0_cf_1, float):
-            return False
+            return False, 'pm10_0_cf_1 not instance of float'
         if not isinstance(sensor_data.pm10_0_atm, float):
-            return False
+            return False, 'pm10_0_atm not instance of float'
         if not isinstance(sensor_data.p_0_3_um, float):
-            return False
+            return False, 'p_0_3_um not instance of float'
         if not isinstance(sensor_data.p_0_5_um, float):
-            return False
+            return False, 'p_0_5_um not instance of float'
         if not isinstance(sensor_data.p_1_0_um, float):
-            return False
+            return False, 'p_1_0_um not instance of float'
         if not isinstance(sensor_data.p_2_5_um, float):
-            return False
+            return False, 'p_2_5_um not instance of float'
         if not isinstance(sensor_data.p_5_0_um, float):
-            return False
+            return False, 'p_5_0_um not instance of float'
         if not isinstance(sensor_data.p_10_0_um, float):
-            return False
+            return False, 'p_10_0_um not instance of float'
         if not isinstance(sensor_data.pm2_5_aqi, int):
-            return False
+            return False, 'pm2_5_aqi not instance of int'
         if not isinstance(sensor_data.p25aqic, RGB):
-            return False
-        return True
+            return False, 'p25aqic not instance of RGB'
+        return True, ''
 
     @staticmethod
     def trim_two_minute_readings(two_minute_readings: List[Reading]) -> None:
@@ -669,35 +669,39 @@ class Service(object):
             two_minute_readings.pop(0)
 
     @staticmethod
-    def is_sane(reading: Reading) -> bool:
+    def is_sane(reading: Reading) -> Tuple[bool, str]:
         if not isinstance(reading.time_of_reading, datetime):
-            return False
+            return False, 'time_of_reading not instance of datetime'
         # Reject reading time that differs from now by more than 20s.
-        if abs((Service.utc_now() - reading.time_of_reading).seconds) > 20:
-            return False
+        delta_seconds = (Service.utc_now() - reading.time_of_reading).seconds
+        if abs(delta_seconds) > 20:
+            return False, 'time_of_reading more than 20s off: %d' % delta_seconds
         if not isinstance(reading.current_temp_f, int):
-            return False
+            return False, 'time_of_reading not instance of int'
         if not isinstance(reading.current_humidity, int):
-            return False
+            return False, 'current_humidity not instance of int'
         if not isinstance(reading.current_dewpoint_f, int):
-            return False
+            return False, 'current_dewpoint_f not instance of int'
         if not isinstance(reading.pressure, float):
-            return False
+            return False, 'pressure not instance of float'
         if reading.current_temp_f_680 is not None and not isinstance(reading.current_temp_f_680, int):
-            return False
+            return False, 'temp_f_680 not instance of int'
         if reading.current_humidity_680 is not None and not isinstance(reading.current_humidity_680, int):
-            return False
+            return False, 'humidity_680 not instance of int'
         if reading.current_dewpoint_f_680 is not None and not isinstance(reading.current_dewpoint_f_680, int):
-            return False
+            return False, 'dewpoint_f_680 not instance of int'
         if reading.pressure_680 is not None and not isinstance(reading.pressure_680, float):
-            return False
+            return False, 'pressure_680 not instance of float'
         if reading.gas_680 is not None and not isinstance(reading.gas_680, float):
-            return False
-        if not Service.is_sensor_sane(reading.sensor):
-            return False
-        if reading.sensor_b is not None and not Service.is_sensor_sane(reading.sensor_b):
-            return False
-        return True
+            return False, 'gas_680 not instance of float'
+        sane, reason = Service.is_sensor_sane(reading.sensor)
+        if not sane:
+            return False, 'sensor: %s' % reason
+        if reading.sensor_b is not None:
+            sane, reason = Service.is_sensor_sane(reading.sensor_b)
+            if not sane:
+                return False, 'sensor b: %s' % reason
+        return True, ''
 
     def compute_next_event(self, first_time: bool) -> Tuple[Event, float]:
         now = time.time()
@@ -738,7 +742,8 @@ class Service(object):
                     session= requests.Session()
                 reading: Reading = Service.collect_data(session, self.hostname, self.port, self.timeout_secs)
                 log.debug('Read sensor in %d seconds.' % (Service.utc_now() - start).seconds)
-                if Service.is_sane(reading):
+                sane, reason = Service.is_sane(reading)
+                if sane:
                     archive_readings.append(reading)
                     two_minute_readings.append(reading)
                     # Save this reading as the current reading
@@ -750,7 +755,7 @@ class Service(object):
                     except Exception as e:
                         log.critical('Could not save current reading to database: %s: %s' % (self.database, e))
                 else:
-                    log.error('Reading found insane: %s' % reading)
+                    log.error('Reading found insane due to:  %s: %s' % (reason, reading))
             except Exception as e:
                 log.error('Skipping reading because of: %s' % e)
                 # It's probably a good idea to reset the session
