@@ -103,7 +103,7 @@ while(defined($_ = <STDIN>)) {
         $counts{$FETCH_ARCHIVE_RECORDS} += 1;
     } elsif (/get-earliest-timestamp: /) {
         $counts{$GET_EARLIEST_TIMESTAMP} += 1;
-    } elsif (/Reading found insane: Reading/) {
+    } elsif (/Reading found insane due to:  /) {
         $errors{$INSANE_READING} += 1;
         push @insane_reading_errors, $_;
     } elsif (/Skipping two_minute record because there have been zero readings this two minute period\./) {
