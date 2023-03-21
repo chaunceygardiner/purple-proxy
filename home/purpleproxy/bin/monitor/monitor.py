@@ -673,9 +673,9 @@ class Service(object):
         if not isinstance(reading.time_of_reading, datetime):
             return False, 'time_of_reading not instance of datetime'
         # Reject reading time that differs from now by more than 20s.
-        delta_seconds = (Service.utc_now() - reading.time_of_reading).seconds
-        if abs(delta_seconds) > 20:
-            return False, 'time_of_reading more than 20s off: %d' % delta_seconds
+        delta_seconds = Service.utc_now().timestamp() - reading.time_of_reading.timestamp()
+        if abs(delta_seconds) > 20.0:
+            return False, 'time_of_reading more than 20s off: %f' % delta_seconds
         if not isinstance(reading.current_temp_f, int):
             return False, 'time_of_reading not instance of int'
         if not isinstance(reading.current_humidity, int):
