@@ -677,7 +677,7 @@ class Service(object):
         if abs(delta_seconds) > 20.0:
             return False, 'time_of_reading more than 20s off: %f' % delta_seconds
         if not isinstance(reading.current_temp_f, int):
-            return False, 'time_of_reading not instance of int'
+            return False, 'current_temp_f not instance of int'
         if not isinstance(reading.current_humidity, int):
             return False, 'current_humidity not instance of int'
         if not isinstance(reading.current_dewpoint_f, int):
@@ -685,11 +685,11 @@ class Service(object):
         if not isinstance(reading.pressure, float):
             return False, 'pressure not instance of float'
         if reading.current_temp_f_680 is not None and not isinstance(reading.current_temp_f_680, int):
-            return False, 'temp_f_680 not instance of int'
+            return False, 'current_temp_f_680 not instance of int'
         if reading.current_humidity_680 is not None and not isinstance(reading.current_humidity_680, int):
-            return False, 'humidity_680 not instance of int'
+            return False, 'current_humidity_680 not instance of int'
         if reading.current_dewpoint_f_680 is not None and not isinstance(reading.current_dewpoint_f_680, int):
-            return False, 'dewpoint_f_680 not instance of int'
+            return False, 'current_dewpoint_f_680 not instance of int'
         if reading.pressure_680 is not None and not isinstance(reading.pressure_680, float):
             return False, 'pressure_680 not instance of float'
         if reading.gas_680 is not None and not isinstance(reading.gas_680, float):
