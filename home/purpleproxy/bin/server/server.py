@@ -110,7 +110,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             error = 'A command must be specified.'
         else:
             error = 'Unknown command: %s.' % cmd
-        if cmd != RequestType.ERROR:
+        if request_type != RequestType.ERROR:
             args_dict: Dict[str, str] = Handler.parse_args(args)
             if request_type == RequestType.FETCH_ARCHIVE_RECORDS:
                 if 'since_ts' in args_dict:
