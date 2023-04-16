@@ -757,7 +757,7 @@ class Service(object):
                 else:
                     log.error('Reading found insane due to:  %s: %s' % (reason, reading))
             except Exception as e:
-                log.error('Skipping reading because of: %s' % e)
+                log.error('Skipping reading because of: %r' % e)
                 # It's probably a good idea to reset the session
                 try:
                     if session is not None:
