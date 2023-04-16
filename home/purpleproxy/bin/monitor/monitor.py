@@ -435,7 +435,7 @@ class Service(object):
                 if elapsed_time > 6.0:
                     log.info('Event took longer than expected: %f seconds.' % elapsed_time)
                 break
-            except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout) as e:
+            except (requests.exceptions.ConnectTimeout, requests.exceptions.ReadTimeout) as e:
                 if i < 2:
                     log.info('%r: Retrying request.' % e)
                     sleep(5)
