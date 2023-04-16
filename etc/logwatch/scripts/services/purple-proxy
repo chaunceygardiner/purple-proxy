@@ -13,7 +13,7 @@ my %errors;
 my $STARTUPS = 'Startups';
 my $LONG_SENSOR_READS = 'Long Sensor Reads';
 my $ARCHIVE_RECORDS_ADDED = 'Archive Records Added';
-my $SKIPPED_SENSOR_READINGS = 'Skipped Sensor Readings';
+my $READ_TIMEOUTS = 'Read timeouts (skipped reading)';
 my $ARCHIVE_INSERT_ERRORS = 'Archive Insert Errors';
 my $TWO_MINUTE_INSERT_ERRORS = 'Two Minute Insert Errors';
 my $CURRENT_INSERT_ERRORS = 'Current Insert Errors';
@@ -74,8 +74,8 @@ while(defined($_ = <STDIN>)) {
     } elsif (/Could not save current reading to database/) {
         push @current_insert_errors, $_;
         $errors{$CURRENT_INSERT_ERRORS} += 1;
-    } elsif (/Skipping reading because of:/) {
-        $errors{$SKIPPED_SENSOR_READINGS} += 1;
+    } elsif (/Skipping reading because of: .*: Read timed out\./) {
+        $errors{$READ_TIMEOUTS} += 1;
     } elsif (/Failed to establish a new connection: .* Temporary failure in name resolution/) {
         $errors{$TMP_NAME_RESOLUTON_ERRORS} += 1;
     } elsif (/Failed to establish a new connection: .* No route to host/) {
