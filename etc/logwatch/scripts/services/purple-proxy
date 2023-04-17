@@ -74,7 +74,7 @@ while(defined($_ = <STDIN>)) {
     } elsif (/Could not save current reading to database/) {
         push @current_insert_errors, $_;
         $errors{$CURRENT_INSERT_ERRORS} += 1;
-    } elsif (/Skipping reading because of: .*: Read timed out\./) {
+    } elsif (/Skipping reading because of: ConnectionError\(ReadTimeoutError/) {
         $errors{$READ_TIMEOUTS_SKIPPING} += 1;
     } elsif (/Failed to establish a new connection: .* Temporary failure in name resolution/) {
         $errors{$TMP_NAME_RESOLUTON_ERRORS} += 1;
@@ -86,7 +86,7 @@ while(defined($_ = <STDIN>)) {
         $errors{$CONNECTION_REFUSED} += 1;
     } elsif (/Caused by ConnectTimeoutError/) {
         $errors{$CONNECTION_TIMEOUT} += 1;
-    } elsif (/Read timed out\.: Retrying request\./) {
+    } elsif (/ConnectionError\(ReadTimeoutError.*: Retrying request\./) {
         $errors{$READ_TIMEOUTS_RETRYING} += 1;
     } elsif (/Failed to establish a new connection: .* Name or service not known/) {
         $errors{$NAME_UNKNOWN} += 1;
