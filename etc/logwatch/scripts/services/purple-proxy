@@ -13,7 +13,9 @@ my %errors;
 my $STARTUPS = 'Startups';
 my $LONG_SENSOR_READS = 'Long Sensor Reads';
 my $ARCHIVE_RECORDS_ADDED = 'Archive Records Added';
+my $CONN_TIMEOUTS_RETRYING = 'Conn. timeouts (retrying)';
 my $READ_TIMEOUTS_RETRYING = 'Read timeouts (retrying)';
+my $CONN_TIMEOUTS_SKIPPING = 'Conn. timeouts (skipped reading)';
 my $READ_TIMEOUTS_SKIPPING = 'Read timeouts (skipped reading)';
 my $ARCHIVE_INSERT_ERRORS = 'Archive Insert Errors';
 my $TWO_MINUTE_INSERT_ERRORS = 'Two Minute Insert Errors';
@@ -75,6 +77,8 @@ while(defined($_ = <STDIN>)) {
         push @current_insert_errors, $_;
         $errors{$CURRENT_INSERT_ERRORS} += 1;
     } elsif (/Skipping reading because of: ConnectionError\(ReadTimeoutError/) {
+        $errors{$CONN_TIMEOUTS_SKIPPING} += 1;
+    } elsif (/Skipping reading because of: ReadTimeout\(ReadTimeoutError/) {
         $errors{$READ_TIMEOUTS_SKIPPING} += 1;
     } elsif (/Failed to establish a new connection: .* Temporary failure in name resolution/) {
         $errors{$TMP_NAME_RESOLUTON_ERRORS} += 1;
@@ -87,6 +91,8 @@ while(defined($_ = <STDIN>)) {
     } elsif (/Caused by ConnectTimeoutError/) {
         $errors{$CONNECTION_TIMEOUT} += 1;
     } elsif (/ConnectionError\(ReadTimeoutError.*: Retrying request\./) {
+        $errors{$CONN_TIMEOUTS_RETRYING} += 1;
+    } elsif (/ReadTimeout\(ReadTimeoutError.*: Retrying request\./) {
         $errors{$READ_TIMEOUTS_RETRYING} += 1;
     } elsif (/Failed to establish a new connection: .* Name or service not known/) {
         $errors{$NAME_UNKNOWN} += 1;
