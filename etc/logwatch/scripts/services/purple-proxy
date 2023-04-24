@@ -16,6 +16,7 @@ my $ARCHIVE_RECORDS_ADDED = 'Archive Records Added';
 my $CONN_TIMEOUTS_RETRYING = 'Conn. timeouts (retrying)';
 my $READ_TIMEOUTS_RETRYING = 'Read timeouts (retrying)';
 my $CONN_TIMEOUTS_SKIPPING = 'Conn. timeouts (skipped reading)';
+my $CONN_REFUSED_SKIPPING = 'Conn. refused (skipped reading)';
 my $READ_TIMEOUTS_SKIPPING = 'Read timeouts (skipped reading)';
 my $ARCHIVE_INSERT_ERRORS = 'Archive Insert Errors';
 my $TWO_MINUTE_INSERT_ERRORS = 'Two Minute Insert Errors';
@@ -24,7 +25,7 @@ my $TMP_NAME_RESOLUTON_ERRORS = 'Tmp Name Resolution Errors';
 my $NO_ROUTE_TO_HOST_ERRORS = 'No Route to Host';
 my $SKIPPED_ARCHIVE_RECORDS = 'Skipped archive records';
 my $SKIPPED_2M_RECORDS = 'Skipped 2 min. records';
-my $CONNECTION_REFUSED = 'Connection refused';
+my $CONNECTION_REFUSED_RETRYING = 'Connection refused (retrying)';
 my $CONNECTION_TIMEOUT = 'Connection timed out';
 my $NAME_UNKNOWN = 'Name or service not known';
 
@@ -78,6 +79,8 @@ while(defined($_ = <STDIN>)) {
         $errors{$CURRENT_INSERT_ERRORS} += 1;
     } elsif (/Skipping reading because of: ConnectionError\(ReadTimeoutError/) {
         $errors{$CONN_TIMEOUTS_SKIPPING} += 1;
+    } elsif (/Skipping reading because of: ConnectionError.* Connection refused/) {
+        $errors{$CONN_REFUSED_SKIPPING} += 1;
     } elsif (/Skipping reading because of: ReadTimeout\(ReadTimeoutError/) {
         $errors{$READ_TIMEOUTS_SKIPPING} += 1;
     } elsif (/Failed to establish a new connection: .* Temporary failure in name resolution/) {
@@ -87,7 +90,7 @@ while(defined($_ = <STDIN>)) {
     } elsif (/Skipping archive record because there have been zero readings this archive period/) {
         $errors{$SKIPPED_ARCHIVE_RECORDS} += 1;
     } elsif (/Connection refused.*Retrying request/) {
-        $errors{$CONNECTION_REFUSED} += 1;
+        $errors{$CONNECTION_REFUSED_RETRYING} += 1;
     } elsif (/Caused by ConnectTimeoutError/) {
         $errors{$CONNECTION_TIMEOUT} += 1;
     } elsif (/ConnectionError\(ReadTimeoutError.*: Retrying request\./) {
