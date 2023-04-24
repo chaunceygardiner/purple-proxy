@@ -423,24 +423,16 @@ class Service(object):
     @staticmethod
     def collect_data(session: requests.Session, hostname: str, port:int, timeout_secs:int) -> Reading:
         # fetch data
-        # If the machine was just rebooted, a temporary failure in name
-        # resolution is likely.  As such, try three times on ConnectionError.
-        for i in range(3):
-            try:
-                start_time = time.time()
-                response: requests.Response = session.get(url="http://%s:%s/json?live=true" % (hostname, port), timeout=timeout_secs)
-                response.raise_for_status()
-                elapsed_time = time.time() - start_time
-                log.debug('collect_data: elapsed time: %f seconds.' % elapsed_time)
-                if elapsed_time > 6.0:
-                    log.info('Event took longer than expected: %f seconds.' % elapsed_time)
-                break
-            except Exception as e:
-                if i < 2:
-                    log.info('%r: Retrying request.' % e)
-                    sleep(5)
-                else:
-                    raise e
+        try:
+            start_time = time.time()
+            response: requests.Response = session.get(url="http://%s:%s/json?live=true" % (hostname, port), timeout=timeout_secs)
+            response.raise_for_status()
+            elapsed_time = time.time() - start_time
+            log.debug('collect_data: elapsed time: %f seconds.' % elapsed_time)
+            if elapsed_time > 6.0:
+                log.info('Event took longer than expected: %f seconds.' % elapsed_time)
+        except Exception as e:
+            raise e
         return Service.parse_response(response)
 
     @staticmethod
