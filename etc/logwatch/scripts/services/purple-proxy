@@ -79,6 +79,8 @@ while(defined($_ = <STDIN>)) {
         $errors{$CURRENT_INSERT_ERRORS} += 1;
     } elsif (/Skipping reading because of: ConnectionError\(ReadTimeoutError/) {
         $errors{$CONN_TIMEOUTS_SKIPPING} += 1;
+    } elsif (/Skipping reading because of: ConnectTimeout.*Caused by ConnectTimeoutError/) {
+        $errors{$CONN_TIMEOUTS_SKIPPING} += 1;
     } elsif (/Skipping reading because of: ConnectionError.* Connection refused/) {
         $errors{$CONN_REFUSED_SKIPPING} += 1;
     } elsif (/Skipping reading because of: ReadTimeout\(ReadTimeoutError/) {
