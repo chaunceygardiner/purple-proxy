@@ -18,6 +18,7 @@ my $READ_TIMEOUTS_RETRYING = 'Read timeouts (retrying)';
 my $CONN_TIMEOUTS_SKIPPING = 'Conn. timeouts (skipped reading)';
 my $CONN_REFUSED_SKIPPING = 'Conn. refused (skipped reading)';
 my $READ_TIMEOUTS_SKIPPING = 'Read timeouts (skipped reading)';
+my $CONN_BROKEN_SKIPPING = 'Conn. broken (skipped reading)';
 my $ARCHIVE_INSERT_ERRORS = 'Archive Insert Errors';
 my $TWO_MINUTE_INSERT_ERRORS = 'Two Minute Insert Errors';
 my $CURRENT_INSERT_ERRORS = 'Current Insert Errors';
@@ -85,6 +86,8 @@ while(defined($_ = <STDIN>)) {
         $errors{$CONN_REFUSED_SKIPPING} += 1;
     } elsif (/Skipping reading because of: ReadTimeout\(ReadTimeoutError/) {
         $errors{$READ_TIMEOUTS_SKIPPING} += 1;
+    } elsif (/Skipping reading because of: .*Connection broken: .* IncompleteRead/) {
+        $errors{$CONN_BROKEN_SKIPPING} += 1;
     } elsif (/Failed to establish a new connection: .* Temporary failure in name resolution/) {
         $errors{$TMP_NAME_RESOLUTON_ERRORS} += 1;
     } elsif (/Failed to establish a new connection: .* No route to host/) {
