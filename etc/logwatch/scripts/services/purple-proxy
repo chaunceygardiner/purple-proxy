@@ -29,13 +29,13 @@ my $SKIPPED_2M_RECORDS = 'Skipped 2 min. records';
 my $CONNECTION_REFUSED_RETRYING = 'Connection refused (retrying)';
 my $CONNECTION_TIMEOUT = 'Connection timed out';
 my $NAME_UNKNOWN = 'Name or service not known';
+my $INSANE_READING = 'Insane Reading Errors (skipped reading)';
 
 my $GET_VERSION             = 'get-version';
 my $GET_EARLIEST_TIMESTAMP  = 'get-earliest-timestamp';
 my $FETCH_ARCHIVE_RECORDS   = 'fetch-archive-records';
 my $FETCH_TWO_MINUTE_RECORD = 'fetch-two-minute-record';
 my $FETCH_CURRENT_RECORD    = 'fetch-current-record';
-my $INSANE_READING          = 'Insane Reading Errors';
 my $REQUEST_ERRORS          = 'Request Errors';
 
 # any lines that do not match the patterns we define
