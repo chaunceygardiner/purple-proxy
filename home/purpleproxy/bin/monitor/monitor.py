@@ -1181,7 +1181,7 @@ def start(args):
     hostname       : Optional[str]  = config_dict.get('hostname', None)
     port           : int            = int(config_dict.get('port', 80))
     server_port    : int            = int(config_dict.get('server-port', 8000))
-    timeout_secs   : int            = int(config_dict.get('timeout-secs', 15))
+    timeout_secs   : int            = int(config_dict.get('timeout-secs', 10))
     pollfreq_secs  : int            = int(config_dict.get('poll-freq-secs', 30))
     pollfreq_offset: int            = int(config_dict.get('poll-freq-offset', 0))
     arcint_secs    : int            = int(config_dict.get('archive-interval-secs', 300))
