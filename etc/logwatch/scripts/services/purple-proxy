@@ -19,6 +19,7 @@ my $CONN_TIMEOUTS_SKIPPING = 'Conn. timeouts (skipped reading)';
 my $CONN_REFUSED_SKIPPING = 'Conn. refused (skipped reading)';
 my $READ_TIMEOUTS_SKIPPING = 'Read timeouts (skipped reading)';
 my $CONN_BROKEN_SKIPPING = 'Conn. broken (skipped reading)';
+my $CHUNK_ENCODING_ERROR = 'Chunk encoding error (skipped reading)';
 my $ARCHIVE_INSERT_ERRORS = 'Archive Insert Errors';
 my $TWO_MINUTE_INSERT_ERRORS = 'Two Minute Insert Errors';
 my $CURRENT_INSERT_ERRORS = 'Current Insert Errors';
@@ -45,6 +46,7 @@ my @unmatched = ();
 my @archive_insert_errors = ();
 my @current_insert_errors = ();
 my @insane_reading_errors = ();
+my @chunk_encoding_errors = ();
 my @two_minute_insert_errors = ();
 my @request_errors = ();
 
@@ -53,6 +55,7 @@ my %itemized = (
     'Two Minute Insert Errors', \@two_minute_insert_errors,
     'Current Insert Errors'   , \@current_insert_errors,
     'Insane Reading Errors'   , \@insane_reading_errors,
+    'Chunk Encoding Errors'   , \@chunk_encoding_errors,
     'Request Errors'          , \@request_errors,
     );
 
@@ -120,6 +123,9 @@ while(defined($_ = <STDIN>)) {
     } elsif (/Reading found insane due to:  /) {
         $errors{$INSANE_READING} += 1;
         push @insane_reading_errors, $_;
+    } elsif (/Skipping reading because of: ChunkedEncodingError.*InvalidChunkLength/) {
+        $errors{$CHUNK_ENCODING_ERROR} += 1;
+        push @chunk_encoding_errors, $_;
     } elsif (/Skipping two_minute record because there have been zero readings this two minute period\./) {
         $errors{$SKIPPED_2M_RECORDS} += 1;
     } elsif (/host:port *:/ ||
