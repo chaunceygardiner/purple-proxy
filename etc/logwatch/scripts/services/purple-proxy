@@ -17,6 +17,7 @@ my $CONN_TIMEOUTS_RETRYING = 'Conn. timeouts (retrying)';
 my $READ_TIMEOUTS_RETRYING = 'Read timeouts (retrying)';
 my $CONN_TIMEOUTS_SKIPPING = 'Conn. timeouts (skipped reading)';
 my $CONN_REFUSED_SKIPPING = 'Conn. refused (skipped reading)';
+my $CONN_ABORTED_SKIPPING = 'Conn. aborted (skipped reading)';
 my $READ_TIMEOUTS_SKIPPING = 'Read timeouts (skipped reading)';
 my $CONN_BROKEN_SKIPPING = 'Conn. broken (skipped reading)';
 my $CHUNK_ENCODING_ERROR = 'Chunk encoding error (skipped reading)';
@@ -87,6 +88,8 @@ while(defined($_ = <STDIN>)) {
         $errors{$CONN_TIMEOUTS_SKIPPING} += 1;
     } elsif (/Skipping reading because of: ConnectionError.* Connection refused/) {
         $errors{$CONN_REFUSED_SKIPPING} += 1;
+    } elsif (/Skipping reading because of: ConnectionError.*Connection aborted/) {
+        $errors{$CONN_ABORTED_SKIPPING} += 1;
     } elsif (/Skipping reading because of: ReadTimeout\(ReadTimeoutError/) {
         $errors{$READ_TIMEOUTS_SKIPPING} += 1;
     } elsif (/Skipping reading because of: .*Connection broken: .* IncompleteRead/) {
