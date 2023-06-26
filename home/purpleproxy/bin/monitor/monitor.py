@@ -742,7 +742,7 @@ class Service(object):
                     try:
                         start = Service.utc_now()
                         self.database.save_current_reading(reading)
-                        log.debug('Saved current reading %s in %d seconds.' %
+                        log.info('Saved current reading %s in %d seconds.' %
                             (Service.datetime_display(reading.time_of_reading), (Service.utc_now() - start).seconds))
                     except Exception as e:
                         log.critical('Could not save current reading to database: %s: %s' % (self.database, e))
@@ -768,7 +768,7 @@ class Service(object):
                 try:
                     start = Service.utc_now()
                     self.database.save_two_minute_reading(avg_reading)
-                    log.debug('Saved two minute reading %s in %d seconds (%d samples).' %
+                    log.info('Saved two minute reading %s in %d seconds (%d samples).' %
                         (Service.datetime_display(avg_reading.time_of_reading), (Service.utc_now() - start).seconds, len(two_minute_readings)))
                 except Exception as e:
                     log.critical('Could not save two minute reading to database: %s: %s' % (self.database, e))

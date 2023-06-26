@@ -12,6 +12,8 @@ my %errors;
 # keys for individual counts
 my $STARTUPS = 'Startups';
 my $LONG_SENSOR_READS = 'Long Sensor Reads';
+my $SAVED_CURR_READING = 'Saved Curr. Readings';
+my $SAVED_2M_READING = 'Saved 2m Readings';
 my $ARCHIVE_RECORDS_ADDED = 'Archive Records Added';
 my $CONN_TIMEOUTS_RETRYING = 'Conn. timeouts (retrying)';
 my $READ_TIMEOUTS_RETRYING = 'Read timeouts (retrying)';
@@ -71,6 +73,10 @@ while(defined($_ = <STDIN>)) {
         $counts{$STARTUPS} += 1;
     } elsif (/Event took longer than expected/) {
         $errors{$LONG_SENSOR_READS} += 1;
+    } elsif (/Saved current reading/) {
+        $counts{$SAVED_CURR_READING} += 1;
+    } elsif (/Saved two minute reading/) {
+        $counts{$SAVED_2M_READING} += 1;
     } elsif (/Added record/) {
         $counts{$ARCHIVE_RECORDS_ADDED} += 1;
     } elsif (/Could not save archive reading to database/) {
