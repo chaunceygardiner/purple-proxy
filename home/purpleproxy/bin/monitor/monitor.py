@@ -390,11 +390,13 @@ class Database(object):
 
 class Service(object):
     def __init__(self, hostname: str, port: int, timeout_secs: int,
-                 pollfreq_secs: int, pollfreq_offset: int, arcint_secs: int,
+                 long_read_secs: int, pollfreq_secs: int,
+                 pollfreq_offset: int, arcint_secs: int,
                  database: Database) -> None:
         self.hostname = hostname
         self.port = port
         self.timeout_secs    = timeout_secs
+        self.long_read_secs  = long_read_secs
         self.pollfreq_secs   = pollfreq_secs
         self.pollfreq_offset = pollfreq_offset
         self.arcint_secs     = arcint_secs
@@ -421,7 +423,7 @@ class Service(object):
             p25aqic            = Service.convert_str_to_rgb(j['p25aqic' + suffix]))
 
     @staticmethod
-    def collect_data(session: requests.Session, hostname: str, port:int, timeout_secs:int) -> Reading:
+    def collect_data(session: requests.Session, hostname: str, port:int, timeout_secs: int, long_read_secs: int) -> Reading:
         # fetch data
         try:
             start_time = time.time()
@@ -429,7 +431,7 @@ class Service(object):
             response.raise_for_status()
             elapsed_time = time.time() - start_time
             log.debug('collect_data: elapsed time: %f seconds.' % elapsed_time)
-            if elapsed_time > 6.0:
+            if elapsed_time > long_read_secs:
                 log.info('Event took longer than expected: %f seconds.' % elapsed_time)
         except Exception as e:
             raise e
@@ -732,7 +734,7 @@ class Service(object):
                 start = Service.utc_now()
                 if session is None:
                     session= requests.Session()
-                reading: Reading = Service.collect_data(session, self.hostname, self.port, self.timeout_secs)
+                reading: Reading = Service.collect_data(session, self.hostname, self.port, self.timeout_secs, self.long_read_secs)
                 log.debug('Read sensor in %d seconds.' % (Service.utc_now() - start).seconds)
                 sane, reason = Service.is_sane(reading)
                 if sane:
@@ -819,21 +821,21 @@ def print_failed(e: Exception) -> None:
     print(bcolors.FAIL + 'FAILED' + bcolors.ENDC)
     print(traceback.format_exc())
 
-def collect_two_readings_one_second_apart(hostname: str, port: int, timeout_secs:int) -> Tuple[Reading, Reading]:
+def collect_two_readings_one_second_apart(hostname: str, port: int, timeout_secs: int, long_read_secs: int) -> Tuple[Reading, Reading]:
     try:
         session: requests.Session = requests.Session()
         print('collect_two_readings_one_seconds_apart...', end='')
-        reading1: Reading = Service.collect_data(session, hostname, port, timeout_secs)
+        reading1: Reading = Service.collect_data(session, hostname, port, timeout_secs, long_read_secs)
         sleep(1) # to get a different time (to the second) on reading2
-        reading2: Reading = Service.collect_data(session, hostname, port, timeout_secs)
+        reading2: Reading = Service.collect_data(session, hostname, port, timeout_secs, long_read_secs)
         print_passed()
         return reading1, reading2
     except Exception as e:
         print_failed(e)
         raise e
 
-def run_tests(service_name: str, hostname: str, port: int, timeout_secs: int) -> None:
-    reading, reading2 = collect_two_readings_one_second_apart(hostname, port, timeout_secs)
+def run_tests(service_name: str, hostname: str, port: int, timeout_secs: int, long_read_secs: int) -> None:
+    reading, reading2 = collect_two_readings_one_second_apart(hostname, port, timeout_secs, long_read_secs)
     test_db_archive_records(service_name, reading)
     test_db_current_records(service_name, reading, reading2)
     sanity_check_reading(reading)
@@ -1181,7 +1183,8 @@ def start(args):
     hostname       : Optional[str]  = config_dict.get('hostname', None)
     port           : int            = int(config_dict.get('port', 80))
     server_port    : int            = int(config_dict.get('server-port', 8000))
-    timeout_secs   : int            = int(config_dict.get('timeout-secs', 10))
+    timeout_secs   : int            = int(config_dict.get('timeout-secs', 25))
+    long_read_secs : int            = int(config_dict.get('long-read-secs', 10))
     pollfreq_secs  : int            = int(config_dict.get('poll-freq-secs', 30))
     pollfreq_offset: int            = int(config_dict.get('poll-freq-offset', 0))
     arcint_secs    : int            = int(config_dict.get('archive-interval-secs', 300))
@@ -1197,6 +1200,7 @@ def start(args):
     log.info('host:port      : %s:%s' % (hostname, port))
     log.info('server_port    : %s'    % server_port)
     log.info('timeout_secs   : %d'    % timeout_secs)
+    log.info('long_read_secs : %d'    % long_read_secs)
     log.info('pollfreq_secs  : %d'    % pollfreq_secs)
     log.info('pollfreq_offset: %d'    % pollfreq_offset)
     log.info('arcint_secs    : %d'    % arcint_secs)
@@ -1210,7 +1214,7 @@ def start(args):
     if options.test is True:
         if not hostname:
             parser.error('hostname must be specified in the config file')
-        run_tests(service_name, hostname, port, timeout_secs)
+        run_tests(service_name, hostname, port, timeout_secs, long_read_secs)
         sys.exit(0)
 
     if options.dump is True:
@@ -1242,7 +1246,7 @@ def start(args):
     else:
         database: Database = Database(db_file)
 
-    purpleproxy_service = Service(hostname, port, timeout_secs, pollfreq_secs,
+    purpleproxy_service = Service(hostname, port, timeout_secs, long_read_secs, pollfreq_secs,
                                   pollfreq_offset, arcint_secs, database)
 
     log.debug('Staring server on port %d.' % server_port)
