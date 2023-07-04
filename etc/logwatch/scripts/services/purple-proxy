@@ -142,6 +142,7 @@ while(defined($_ = <STDIN>)) {
              /server_port *:/ ||
              /db_file *:/ ||
              /timeout_secs *:/ ||
+             /long_read_secs *:/ ||
              /pollfreq_secs *:/ ||
              /pollfreq_offset *:/ ||
              /arcint_secs *:/ ||
