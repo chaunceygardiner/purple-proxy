@@ -23,6 +23,7 @@ my $CONN_ABORTED_SKIPPING = 'Conn. aborted (skipped reading)';
 my $READ_TIMEOUTS_SKIPPING = 'Read timeouts (skipped reading)';
 my $CONN_BROKEN_SKIPPING = 'Conn. broken (skipped reading)';
 my $CHUNK_ENCODING_ERROR = 'Chunk encoding error (skipped reading)';
+my $JSON_DECODING_ERROR = 'JSON decoding error (skipped reading)';
 my $ARCHIVE_INSERT_ERRORS = 'Archive Insert Errors';
 my $TWO_MINUTE_INSERT_ERRORS = 'Two Minute Insert Errors';
 my $CURRENT_INSERT_ERRORS = 'Current Insert Errors';
@@ -50,6 +51,7 @@ my @archive_insert_errors = ();
 my @current_insert_errors = ();
 my @insane_reading_errors = ();
 my @chunk_encoding_errors = ();
+my @json_decoding_errors = ();
 my @two_minute_insert_errors = ();
 my @request_errors = ();
 
@@ -59,6 +61,7 @@ my %itemized = (
     'Current Insert Errors'   , \@current_insert_errors,
     'Insane Reading Errors'   , \@insane_reading_errors,
     'Chunk Encoding Errors'   , \@chunk_encoding_errors,
+    'JSON Decoding Errors'    , \@json_decoding_errors,
     'Request Errors'          , \@request_errors,
     );
 
@@ -135,6 +138,11 @@ while(defined($_ = <STDIN>)) {
     } elsif (/Skipping reading because of: ChunkedEncodingError.*InvalidChunkLength/) {
         $errors{$CHUNK_ENCODING_ERROR} += 1;
         push @chunk_encoding_errors, $_;
+    } elsif (/Skipping reading because of: ChunkedEncodingError.*InvalidChunkLength/) {
+    } elsif (/parse_response: .* raised exception JSONDecodeError/) {
+        push @json_decoding_errors, $_;
+    } elsif (/Skipping reading because of: JSONDecodeError/) {
+        $errors{$JSON_DECODING_ERROR} += 1;
     } elsif (/Skipping two_minute record because there have been zero readings this two minute period\./) {
         $errors{$SKIPPED_2M_RECORDS} += 1;
     } elsif (/host:port *:/ ||
