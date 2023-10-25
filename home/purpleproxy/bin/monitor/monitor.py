@@ -36,7 +36,7 @@ from time import sleep
 from dataclasses import dataclass
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
-PURPLEAIR_PROXY_VERSION = "3.0"
+PURPLEAIR_PROXY_VERSION = "3.1"
 
 class Logger(object):
     def __init__(self, service_name: str, log_to_stdout: bool=False, debug_mode: bool=False):
@@ -122,6 +122,12 @@ class Reading:
     sensor_b              : Optional[SensorData]
 
 class DatabaseAlreadyExists(Exception):
+    pass
+
+class InsaneReading(Exception):
+    pass
+
+class UnexpectedPass(Exception):
     pass
 
 class RecordType:
@@ -663,6 +669,13 @@ class Service(object):
             two_minute_readings.pop(0)
 
     @staticmethod
+    def exhibits_twenty_fold_delta(val_1: float, val_2: float) -> bool:
+        # If either value is zero, skip this check.
+        if val_1 == 0.0 or val_2 == 0.0:
+            return False
+        return (val_1 * 20.0) < val_2 or (val_2 * 20.0) < val_1
+
+    @staticmethod
     def is_sane(reading: Reading) -> Tuple[bool, str]:
         if not isinstance(reading.time_of_reading, datetime):
             return False, 'time_of_reading not instance of datetime'
@@ -695,6 +708,13 @@ class Service(object):
             sane, reason = Service.is_sensor_sane(reading.sensor_b)
             if not sane:
                 return False, 'sensor b: %s' % reason
+            # Check on agreement between the sensors
+            if Service.exhibits_twenty_fold_delta(reading.sensor.pm2_5_cf_1, reading.sensor_b.pm2_5_cf_1):
+                return False, 'Sensors disagree wildly for pm2_5_cf_1'
+            if Service.exhibits_twenty_fold_delta(reading.sensor.pm1_0_cf_1, reading.sensor_b.pm1_0_cf_1):
+                return False, 'Sensors disagree wildly for pm1_0_cf_1'
+            if Service.exhibits_twenty_fold_delta(reading.sensor.pm10_0_cf_1, reading.sensor_b.pm10_0_cf_1):
+                return False, 'Sensors disagree wildly for pm10_0_cf_1'
         return True, ''
 
     def compute_next_event(self, first_time: bool) -> Tuple[Event, float]:
@@ -841,45 +861,26 @@ def run_tests(service_name: str, hostname: str, port: int, timeout_secs: int, lo
     sanity_check_reading(reading)
     test_compute_avg(reading)
     test_convert_to_json(reading, reading2)
-
-def sanity_check_sensor(sensor: SensorData, suffix: str) -> None:
-    assert sensor.pm1_0_cf_1 >= 0.0 and sensor.pm1_0_cf_1 < 10000.0, 'Reading returned insane pm1_0_atm%s: %f' % (suffix, sensor.pm1_0_cf_1)
-    assert sensor.pm1_0_atm >= 0.0 and sensor.pm1_0_atm < 10000.0, 'Reading returned insane pm1_0_atm%s: %f' % (suffix, sensor.pm1_0_atm)
-    assert sensor.pm2_5_cf_1 >= 0.0 and sensor.pm2_5_cf_1 < 10000.0, 'Reading returned insane pm2_5_cf_1 %s: %f' % (suffix, sensor.pm2_5_cf_1)
-    assert sensor.pm2_5_atm >= 0.0 and sensor.pm2_5_atm < 10000.0, 'Reading returned insane pm2_5_atm %s: %f' % (suffix, sensor.pm2_5_atm)
-    assert sensor.pm10_0_cf_1 >= 0.0 and sensor.pm10_0_cf_1 < 10000.0, 'Reading returned insane %s: %f' % (suffix, sensor.pm10_0_cf_1)
-    assert sensor.pm10_0_atm >= 0.0 and sensor.pm10_0_atm < 10000.0, 'Reading returned insane pm10_0_atm %s: %f' % (suffix, sensor.pm10_0_atm)
-    assert sensor.p_0_3_um >= 0.0 and sensor.p_0_3_um < 10000.0, 'Reading returned insane p_0_3_um %s: %f' % (suffix, sensor.p_0_3_um)
-    assert sensor.p_0_5_um >= 0.0 and sensor.p_0_5_um < 10000.0, 'Reading returned insane p_0_5_um %s: %f' % (suffix, sensor.p_0_5_um)
-    assert sensor.p_1_0_um >= 0.0 and sensor.p_1_0_um < 10000.0, 'Reading returned insane p_1_0_um %s: %f' % (suffix, sensor.p_1_0_um)
-    assert sensor.p_2_5_um >= 0.0 and sensor.p_2_5_um < 10000.0, 'Reading returned insane p_2_5_um %s: %f' % (suffix, sensor.p_2_5_um)
-    assert sensor.p_5_0_um >= 0.0 and sensor.p_5_0_um < 10000.0, 'Reading returned insane p_5_0_um %s: %f' % (suffix, sensor.p_5_0_um)
-    assert sensor.p_10_0_um >= 0.0 and sensor.p_10_0_um < 10000.0, 'Reading returned insane p_10_0_um %s: %f' % (suffix, sensor.p_10_0_um)
-    assert sensor.pm2_5_aqi >= 0 and sensor.pm2_5_aqi < 10000, 'Reading returned insane pm2_5_aqi %s: %d' % (suffix, sensor.pm2_5_aqi)
-    # sensor.p25aqic
+    check_sensor_agreement(reading, True)
+    if reading.sensor_b is not None:
+        reading.sensor_b.pm2_5_cf_1 = reading.sensor.pm2_5_cf_1 * 21.0
+    check_sensor_agreement(reading, False)
 
 def sanity_check_reading(reading: Reading) -> None:
-    try:
-        print('sanity_check_reading....', end='')
-        now: datetime = datetime.now(tz=tz.gettz('UTC')) + timedelta(seconds=2) # add 2s buffer as purpleair device time may be off a bit
-        one_minute_ago: datetime = datetime.now(tz=tz.gettz('UTC')) - timedelta(seconds=60)
-
-        assert reading.time_of_reading > one_minute_ago and reading.time_of_reading < now, 'Reading returned insane time (%r).' % reading.time_of_reading
-        assert reading.current_temp_f > -40.0 and reading.current_temp_f < 160.0, 'Reading returned insane temp (%f).' % reading.current_temp_f
-        assert reading.current_humidity >= 0 and reading.current_humidity <= 100, 'Reading returned insane humidity (%d).' % reading.current_humidity
-        assert reading.current_dewpoint_f > -40.0 and reading.current_dewpoint_f < 160.0, 'Reading returned insane dewpoint (%f).' % reading.current_dewpoint_f
-        assert reading.pressure > 900.0 and reading.pressure < 1084.0, 'Reading returned insane pressure (%f).' % reading.pressure
-        assert reading.current_temp_f_680 is None or (reading.current_temp_f_680 > -40.0 and reading.current_temp_f_680 < 160.0), 'Reading returned insane temp_680 (%f).' % reading.current_temp_f_680
-        assert reading.current_humidity_680 is None or (reading.current_humidity_680 >= 0 and reading.current_humidity_680 <= 100), 'Reading returned insane humidity_680 (%d).' % reading.current_humidity_680
-        assert reading.current_dewpoint_f_680 is None or (reading.current_dewpoint_f_680 > -40.0 and reading.current_dewpoint_f_680 < 160.0), 'Reading returned insane dewpoint_680 (%f).' % reading.current_dewpoint_f_680
-        assert reading.pressure_680 is None or (reading.pressure_680 > 900.0 and reading.pressure_680 < 1084.0), 'Reading returned insane pressure_680 (%f).' % reading.pressure_680
-        assert reading.gas_680 is None or (reading.gas_680 >= 0.0 and reading.gas_680 < 1000.0), 'Reading returned insane gas_680 (%f).' % reading.gas_680
-        sanity_check_sensor(reading.sensor, '')
-        if reading.sensor_b is not None:
-            sanity_check_sensor(reading.sensor_b, '_b')
+    print('sanity_check_reading....', end='')
+    sane, reason = Service.is_sane(reading)
+    if sane:
         print_passed()
-    except Exception as e:
-        print_failed(e)
+    else:
+        print_failed(InsaneReading(reason))
+
+def check_sensor_agreement(reading: Reading, should_agree: bool) -> None:
+    print('check_sensor_agreement....', end='')
+    sane, reason = Service.is_sane(reading)
+    if sane and should_agree or not sane and not should_agree:
+        print_passed()
+    else:
+        print_failed(InsaneReading(reason))
 
 def test_compute_avg(reading: Reading) -> None:
     try:
