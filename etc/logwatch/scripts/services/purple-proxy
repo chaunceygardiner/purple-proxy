@@ -27,8 +27,8 @@ my $JSON_DECODING_ERROR = 'JSON decoding error (skipped reading)';
 my $ARCHIVE_INSERT_ERRORS = 'Archive Insert Errors';
 my $TWO_MINUTE_INSERT_ERRORS = 'Two Minute Insert Errors';
 my $CURRENT_INSERT_ERRORS = 'Current Insert Errors';
-my $TMP_NAME_RESOLUTON_ERRORS = 'Tmp Name Resolution Errors';
-my $NO_ROUTE_TO_HOST_ERRORS = 'No Route to Host';
+my $TMP_NAME_RESOLUTON_ERRORS = 'Tmp name resolution error (skipped reading)';
+my $NO_ROUTE_TO_HOST_ERRORS = 'No route to host (skipped reading)';
 my $SKIPPED_ARCHIVE_RECORDS = 'Skipped archive records';
 my $SKIPPED_2M_RECORDS = 'Skipped 2 min. records';
 my $CONNECTION_REFUSED_RETRYING = 'Connection refused (retrying)';
@@ -103,9 +103,9 @@ while(defined($_ = <STDIN>)) {
         $errors{$READ_TIMEOUTS_SKIPPING} += 1;
     } elsif (/Skipping reading because of: .*Connection broken: .* IncompleteRead/) {
         $errors{$CONN_BROKEN_SKIPPING} += 1;
-    } elsif (/Failed to establish a new connection: .* Temporary failure in name resolution/) {
+    } elsif (/Skipping reading because of: .*Failed to establish a new connection: .* Temporary failure in name resolution/) {
         $errors{$TMP_NAME_RESOLUTON_ERRORS} += 1;
-    } elsif (/Failed to establish a new connection: .* No route to host/) {
+    } elsif (/Skipping reading because of: .*Failed to establish a new connection: .* No route to host/) {
         $errors{$NO_ROUTE_TO_HOST_ERRORS} += 1;
     } elsif (/Skipping archive record because there have been zero readings this archive period/) {
         $errors{$SKIPPED_ARCHIVE_RECORDS} += 1;
