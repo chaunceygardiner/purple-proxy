@@ -36,7 +36,7 @@ from time import sleep
 from dataclasses import dataclass
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
-PURPLEAIR_PROXY_VERSION = "3.1"
+PURPLEAIR_PROXY_VERSION = "3.2"
 
 class Logger(object):
     def __init__(self, service_name: str, log_to_stdout: bool=False, debug_mode: bool=False):
@@ -673,7 +673,13 @@ class Service(object):
         # If either value is zero, skip this check.
         if val_1 == 0.0 or val_2 == 0.0:
             return False
-        return (val_1 * 20.0) < val_2 or (val_2 * 20.0) < val_1
+        twenty_fold_diff = (val_1 * 20.0) < val_2 or (val_2 * 20.0) < val_1
+        if twenty_fold_diff:
+            # The twenty_fold_diff could be because 1 reading is close to zero.
+            # As sush, return False if the delta between the readings is < 10.0
+            if abs(val_1 - val_2) < 10.0:
+                return False
+        return twenty_fold_diff
 
     @staticmethod
     def is_sane(reading: Reading) -> Tuple[bool, str]:
