@@ -9,6 +9,7 @@ import threading
 
 import monitor.monitor
 
+from monitor import Logger
 from enum import Enum
 from dataclasses import dataclass
 from json import dumps
@@ -36,6 +37,8 @@ class Request:
 class Handler(http.server.BaseHTTPRequestHandler):
     """Handle requests in a separate thread."""
     def do_GET(self):
+        assert(db_file)
+        assert(log)
         request =  Handler.parse_requestline(self.requestline)
         if request.request_type == RequestType.GET_VERSION:
             self.respond_success(dumps({'version': VERSION}))
@@ -47,6 +50,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         elif request.request_type == RequestType.FETCH_TWO_MINUTE_RECORD:
             self.respond_success(monitor.monitor.Database(db_file).fetch_two_minute_reading_as_json())
         elif request.request_type == RequestType.FETCH_ARCHIVE_RECORDS:
+            assert(request.since_ts)
             self.respond_success(monitor.monitor.Database(db_file).fetch_archive_readings_as_json(request.since_ts, request.max_ts, request.limit))
         else:
             log.info('request_error: %s' % request.error)
@@ -59,7 +63,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(json.encode('ascii'))
 
-    def respond_error(self, error: str):
+    def respond_error(self, error: Optional[str]):
         self.send_error(404, message=error)
         self.send_header('Accept', 'application/json')
         self.send_header('Content-Type', 'application/json')
@@ -143,6 +147,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             request      = request)
 
 db_file: Optional[str] = None
+log: Optional[Logger] = None
 
 def start_server(port: int):
     class ThreadingHTTPServer6(http.server.ThreadingHTTPServer):
@@ -150,7 +155,7 @@ def start_server(port: int):
     with ThreadingHTTPServer6(('::', port), Handler) as server:
         server.serve_forever()
 
-def serve_requests(port: int, db_file_in: str, log_in):
+def serve_requests(port: int, db_file_in: str, log_in: Logger):
     global log
     log = log_in
     global db_file
@@ -166,7 +171,7 @@ if __name__ == '__main__':
     def main():
         usage = """%prog [--help] --db-file <db-file> --port <port>"""
 
-        parser: str = optparse.OptionParser(usage=usage)
+        parser: optparse.OptionParser = optparse.OptionParser(usage=usage)
         parser.add_option('--db-file', dest='db_file', action='store',
                           type=str, default=None,
                           help='The database file from which to serve readings.  --db-file must be specified.')
@@ -181,6 +186,9 @@ if __name__ == '__main__':
         if options.port is None:
             parser.error('port must be specified.')
 
-        serve_requests(options.port, options.db_file)
+        assert(options.port)
+        assert(options.db_file)
+        log: Logger = Logger('server.py', True)
+        serve_requests(options.port, options.db_file, log)
         print('Hit return to exit...', end='')
         _ = input()

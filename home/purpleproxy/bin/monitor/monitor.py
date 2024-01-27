@@ -16,7 +16,6 @@ import os
 import requests
 import sqlite3
 import sys
-import syslog
 import tempfile
 import time
 import traceback
@@ -25,56 +24,20 @@ import server.server
 
 import configobj
 
+from monitor import Logger
 from datetime import datetime
 from datetime import timedelta
 from dateutil import tz
 from dateutil.parser import parse
 from enum import Enum
 from json import dumps
+from json import JSONDecodeError
 from time import sleep
 
 from dataclasses import dataclass
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
-PURPLEAIR_PROXY_VERSION = "3.2"
-
-class Logger(object):
-    def __init__(self, service_name: str, log_to_stdout: bool=False, debug_mode: bool=False):
-        self.service_name = service_name
-        self.log_to_stdout = log_to_stdout
-        self.debug_mode = debug_mode
-        if not log_to_stdout:
-            syslog.openlog(service_name, syslog.LOG_PID | syslog.LOG_CONS)
-
-    def logmsg(self, level: int, msg: str) -> None:
-        if self.log_to_stdout:
-            l: str
-            if level == syslog.LOG_DEBUG:
-                l = 'DEBUG'
-            elif level == syslog.LOG_INFO:
-                l = 'INFO'
-            elif level == syslog.LOG_ERR:
-                l = 'ERR'
-            elif level == syslog.LOG_CRIT:
-                l = 'CRIT'
-            else:
-                l = '%d' % level
-            print('%s: %s: %s' % (l, self.service_name, msg))
-        else:
-            syslog.syslog(level, msg)
-
-    def debug(self, msg: str) -> None:
-        if self.debug_mode:
-            self.logmsg(syslog.LOG_DEBUG, msg)
-
-    def info(self, msg: str) -> None:
-        self.logmsg(syslog.LOG_INFO, msg)
-
-    def error(self, msg: str) -> None:
-        self.logmsg(syslog.LOG_ERR, msg)
-
-    def critical(self, msg: str) -> None:
-        self.logmsg(syslog.LOG_CRIT, msg)
+PURPLEAIR_PROXY_VERSION = "3.3"
 
 # Log to stdout until logger info is known.
 log: Logger = Logger('monitor', log_to_stdout=True, debug_mode=False)
@@ -431,16 +394,22 @@ class Service(object):
     @staticmethod
     def collect_data(session: requests.Session, hostname: str, port:int, timeout_secs: int, long_read_secs: int) -> Reading:
         # fetch data
-        try:
-            start_time = time.time()
-            response: requests.Response = session.get(url="http://%s:%s/json?live=true" % (hostname, port), timeout=timeout_secs)
-            response.raise_for_status()
-            elapsed_time = time.time() - start_time
-            log.debug('collect_data: elapsed time: %f seconds.' % elapsed_time)
-            if elapsed_time > long_read_secs:
-                log.info('Event took longer than expected: %f seconds.' % elapsed_time)
-        except Exception as e:
-            raise e
+        for i in range(2):
+            try:
+                start_time = time.time()
+                response: requests.Response = session.get(url="http://%s:%s/json?live=true" % (hostname, port), timeout=timeout_secs)
+                response.raise_for_status()
+                elapsed_time = time.time() - start_time
+                log.debug('collect_data: elapsed time: %f seconds.' % elapsed_time)
+                if elapsed_time > long_read_secs:
+                    log.info('Event took longer than expected: %f seconds.' % elapsed_time)
+            except JSONDecodeError as e:
+                if i < 1:
+                    log.info('JSONDecodeError: retrying request: %s:%s' % (hostname, port))
+                    continue
+                raise e
+            except Exception as e:
+                raise e
         return Service.parse_response(response)
 
     @staticmethod
@@ -1166,7 +1135,7 @@ def get_configuration(config_file):
 
 def start(args):
     usage = """%prog [--help] [--test | --dump] [--pidfile <pidfile>] <purpleproxy-conf-file>"""
-    parser: str = optparse.OptionParser(usage=usage)
+    parser: optparse.OptionParser = optparse.OptionParser(usage=usage)
 
     parser.add_option('-p', '--pidfile', dest='pidfile', action='store',
                       type=str, default=None,
@@ -1221,12 +1190,14 @@ def start(args):
     if options.test is True:
         if not hostname:
             parser.error('hostname must be specified in the config file')
+        assert(hostname)
         run_tests(service_name, hostname, port, timeout_secs, long_read_secs)
         sys.exit(0)
 
     if options.dump is True:
         if not db_file:
             parser.error('database-file must be specified in the config file')
+        assert(db_file)
         dump_database(db_file)
         sys.exit(0)
 
@@ -1247,16 +1218,20 @@ def start(args):
             os.fsync(f)
 
     # Create database if it does not yet exist.
+    assert(db_file)
     if not os.path.exists(db_file):
         log.debug('Creating database: %s' % db_file)
         database: Database = Database.create(db_file)
     else:
-        database: Database = Database(db_file)
+        assert(db_file)
+        database = Database(db_file)
 
+    assert(hostname)
     purpleproxy_service = Service(hostname, port, timeout_secs, long_read_secs, pollfreq_secs,
                                   pollfreq_offset, arcint_secs, database)
 
     log.debug('Staring server on port %d.' % server_port)
+    assert(db_file)
     server.server.serve_requests(server_port, db_file, log)
 
     log.debug('Staring mainloop.')
