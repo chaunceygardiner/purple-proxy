@@ -31,13 +31,12 @@ from dateutil import tz
 from dateutil.parser import parse
 from enum import Enum
 from json import dumps
-from json import JSONDecodeError
 from time import sleep
 
 from dataclasses import dataclass
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
-PURPLEAIR_PROXY_VERSION = "3.3"
+PURPLEAIR_PROXY_VERSION = "3.4"
 
 # Log to stdout until logger info is known.
 log: Logger = Logger('monitor', log_to_stdout=True, debug_mode=False)
@@ -394,22 +393,16 @@ class Service(object):
     @staticmethod
     def collect_data(session: requests.Session, hostname: str, port:int, timeout_secs: int, long_read_secs: int) -> Reading:
         # fetch data
-        for i in range(2):
-            try:
-                start_time = time.time()
-                response: requests.Response = session.get(url="http://%s:%s/json?live=true" % (hostname, port), timeout=timeout_secs)
-                response.raise_for_status()
-                elapsed_time = time.time() - start_time
-                log.debug('collect_data: elapsed time: %f seconds.' % elapsed_time)
-                if elapsed_time > long_read_secs:
-                    log.info('Event took longer than expected: %f seconds.' % elapsed_time)
-            except JSONDecodeError as e:
-                if i < 1:
-                    log.info('JSONDecodeError: retrying request: %s:%s' % (hostname, port))
-                    continue
-                raise e
-            except Exception as e:
-                raise e
+        try:
+            start_time = time.time()
+            response: requests.Response = session.get(url="http://%s:%s/json?live=true" % (hostname, port), timeout=timeout_secs)
+            response.raise_for_status()
+            elapsed_time = time.time() - start_time
+            log.debug('collect_data: elapsed time: %f seconds.' % elapsed_time)
+            if elapsed_time > long_read_secs:
+                log.info('Event took longer than expected: %f seconds.' % elapsed_time)
+        except Exception as e:
+            raise e
         return Service.parse_response(response)
 
     @staticmethod
