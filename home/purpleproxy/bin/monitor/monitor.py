@@ -36,7 +36,7 @@ from time import sleep
 from dataclasses import dataclass
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
-PURPLEAIR_PROXY_VERSION = "3.4"
+PURPLEAIR_PROXY_VERSION = "3.5"
 
 # Log to stdout until logger info is known.
 log: Logger = Logger('monitor', log_to_stdout=True, debug_mode=False)
@@ -678,11 +678,11 @@ class Service(object):
                 return False, 'sensor b: %s' % reason
             # Check on agreement between the sensors
             if Service.exhibits_twenty_fold_delta(reading.sensor.pm2_5_cf_1, reading.sensor_b.pm2_5_cf_1):
-                return False, 'Sensors disagree wildly for pm2_5_cf_1'
+                return False, 'Sensors disagree wildly for pm2_5_cf_1 (%f, %f))' % (reading.sensor.pm2_5_cf_1, reading.sensor_b.pm2_5_cf_1)
             if Service.exhibits_twenty_fold_delta(reading.sensor.pm1_0_cf_1, reading.sensor_b.pm1_0_cf_1):
-                return False, 'Sensors disagree wildly for pm1_0_cf_1'
+                return False, 'Sensors disagree wildly for pm1_0_cf_1 (%f, %f)' % (reading.sensor.pm1_0_cf_1, reading.sensor_b.pm1_0_cf_1)
             if Service.exhibits_twenty_fold_delta(reading.sensor.pm10_0_cf_1, reading.sensor_b.pm10_0_cf_1):
-                return False, 'Sensors disagree wildly for pm10_0_cf_1'
+                return False, 'Sensors disagree wildly for pm10_0_cf_1 (%f, %f)' % (reading.sensor.pm10_0_cf_1, reading.sensor_b.pm10_0_cf_1)
         return True, ''
 
     def compute_next_event(self, first_time: bool) -> Tuple[Event, float]:
