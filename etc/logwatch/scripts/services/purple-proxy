@@ -34,7 +34,9 @@ my $SKIPPED_2M_RECORDS = 'Skipped 2 min. records';
 my $CONNECTION_REFUSED_RETRYING = 'Connection refused (retrying)';
 my $CONNECTION_TIMEOUT = 'Connection timed out';
 my $NAME_UNKNOWN = 'Name or service not known';
-my $INSANE_READING = 'Insane Reading Errors (skipped reading)';
+my $INSANE_READING_OTHER = 'Insane Reading (Other) (skipped reading)';
+my $INSANE_READING_DISAGREE = 'Insane Reading (Disagree) (skipped reading)';
+my $INSANE_READING_VALUE = 'Insane Reading (Bad Value) (skipped reading)';
 
 my $GET_VERSION             = 'get-version';
 my $GET_EARLIEST_TIMESTAMP  = 'get-earliest-timestamp';
@@ -49,7 +51,9 @@ my @unmatched = ();
 # keep details
 my @archive_insert_errors = ();
 my @current_insert_errors = ();
-my @insane_reading_errors = ();
+my @insane_reading_other_errors = ();
+my @insane_reading_value_errors = ();
+my @insane_reading_disagree_errors = ();
 my @chunk_encoding_errors = ();
 my @json_decoding_errors = ();
 my @two_minute_insert_errors = ();
@@ -59,7 +63,9 @@ my %itemized = (
     'Archive Insert Errors'   , \@archive_insert_errors,
     'Two Minute Insert Errors', \@two_minute_insert_errors,
     'Current Insert Errors'   , \@current_insert_errors,
-    'Insane Reading Errors'   , \@insane_reading_errors,
+    'Insane Reading (Other) Errors'   , \@insane_reading_other_errors,
+    'Insane Reading (Value) Errors'   , \@insane_reading_value_errors,
+    'Insane Reading (Disagree) Errors'   , \@insane_reading_disagree_errors,
     'Chunk Encoding Errors'   , \@chunk_encoding_errors,
     'JSON Decoding Errors'    , \@json_decoding_errors,
     'Request Errors'          , \@request_errors,
@@ -132,9 +138,15 @@ while(defined($_ = <STDIN>)) {
         $counts{$FETCH_ARCHIVE_RECORDS} += 1;
     } elsif (/get-earliest-timestamp: /) {
         $counts{$GET_EARLIEST_TIMESTAMP} += 1;
+    } elsif (/Reading found insane due to:  Sensors disagree wildly for /) {
+        $errors{$INSANE_READING_DISAGREE} += 1;
+        push @insane_reading_disagree_errors, $_;
+    } elsif (/Reading found insane due to:  .* not instance of /) {
+        $errors{$INSANE_READING_VALUE} += 1;
+        push @insane_reading_value_errors, $_;
     } elsif (/Reading found insane due to:  /) {
-        $errors{$INSANE_READING} += 1;
-        push @insane_reading_errors, $_;
+        $errors{$INSANE_READING_OTHER} += 1;
+        push @insane_reading_other_errors, $_;
     } elsif (/Skipping reading because of: ChunkedEncodingError.*InvalidChunkLength/) {
         $errors{$CHUNK_ENCODING_ERROR} += 1;
         push @chunk_encoding_errors, $_;
