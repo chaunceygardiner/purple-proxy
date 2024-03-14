@@ -36,7 +36,7 @@ my $CONNECTION_TIMEOUT = 'Connection timed out';
 my $NAME_UNKNOWN = 'Name or service not known';
 my $INSANE_READING_OTHER = 'Insane Reading (Other) (skipped reading)';
 my $INSANE_READING_DISAGREE = 'Insane Reading (Disagree) (skipped reading)';
-my $INSANE_READING_VALUE = 'Insane Reading (Bad Value) (skipped reading)';
+my $INSANE_READING_INSTANCE = 'Insane Reading (Bad Inst) (skipped reading)';
 my $INSANE_READING_TIME = 'Insane Reading (Bad Time) (skipped reading)';
 
 my $GET_VERSION             = 'get-version';
@@ -53,7 +53,7 @@ my @unmatched = ();
 my @archive_insert_errors = ();
 my @current_insert_errors = ();
 my @insane_reading_other_errors = ();
-my @insane_reading_value_errors = ();
+my @insane_reading_instance_errors = ();
 my @insane_reading_time_errors = ();
 my @insane_reading_disagree_errors = ();
 my @chunk_encoding_errors = ();
@@ -66,7 +66,7 @@ my %itemized = (
     'Two Minute Insert Errors', \@two_minute_insert_errors,
     'Current Insert Errors'   , \@current_insert_errors,
     'Insane Reading (Other) Errors'   , \@insane_reading_other_errors,
-    'Insane Reading (Value) Errors'   , \@insane_reading_value_errors,
+    'Insane Reading (Instance) Errors'   , \@insane_reading_instance_errors,
     'Insane Reading (Time) Errors'   , \@insane_reading_time_errors,
     'Insane Reading (Disagree) Errors'   , \@insane_reading_disagree_errors,
     'Chunk Encoding Errors'   , \@chunk_encoding_errors,
@@ -145,8 +145,8 @@ while(defined($_ = <STDIN>)) {
         $errors{$INSANE_READING_DISAGREE} += 1;
         push @insane_reading_disagree_errors, $_;
     } elsif (/Reading found insane due to:  .* not instance of /) {
-        $errors{$INSANE_READING_VALUE} += 1;
-        push @insane_reading_value_errors, $_;
+        $errors{$INSANE_READING_INSTANCE} += 1;
+        push @insane_reading_instance_errors, $_;
     } elsif (/Reading found insane due to:  time_of_reading more than 20s off: /) {
         $errors{$INSANE_READING_TIME} += 1;
         push @insane_reading_time_errors, $_;
