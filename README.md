@@ -51,6 +51,7 @@ In all cases:
 
 ```
 sudo apt install python3-configobj
+sudo apt install python3-dateutil
 sudo <purple-proxy-src-dir>/install <purple-proxy-src-dir> <target-dir> <archive-interval-seconds> <purpleair-dns-name-or-ip-address>"
 ```
 
