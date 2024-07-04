@@ -38,6 +38,7 @@ my $INSANE_READING_OTHER = 'Insane Reading (Other) (skipped reading)';
 my $INSANE_READING_DISAGREE = 'Insane Reading (Disagree) (skipped reading)';
 my $INSANE_READING_INSTANCE = 'Insane Reading (Bad Inst) (skipped reading)';
 my $INSANE_READING_TIME = 'Insane Reading (Bad Time) (skipped reading)';
+my $NTWK_UNREACHABLE = 'Network Unreachable (skipped reading)';
 
 my $GET_VERSION             = 'get-version';
 my $GET_EARLIEST_TIMESTAMP  = 'get-earliest-timestamp';
@@ -141,6 +142,8 @@ while(defined($_ = <STDIN>)) {
         $counts{$FETCH_ARCHIVE_RECORDS} += 1;
     } elsif (/get-earliest-timestamp: /) {
         $counts{$GET_EARLIEST_TIMESTAMP} += 1;
+    } elsif (/Skipping reading because of: .* \[Errno 101\] Network is unreachable/) {
+        $errors{$NTWK_UNREACHABLE} += 1;
     } elsif (/Reading found insane due to:  Sensors disagree wildly for /) {
         $errors{$INSANE_READING_DISAGREE} += 1;
         push @insane_reading_disagree_errors, $_;
