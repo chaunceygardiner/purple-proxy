@@ -33,6 +33,7 @@ mkdir    "$target_dir"/bin/server 2> /dev/null
 
 if [ -d "/etc/logrotate.d" ]; then
   cp ${src_dir}/etc/logrotate.d/purple-proxy ${etc}/logrotate.d/
+  chmod 644 ${etc}/logrotate.d/purple-proxy
 fi
 
 if [ -d "/etc/logwatch" ]; then
