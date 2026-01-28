@@ -115,6 +115,8 @@ while(defined($_ = <STDIN>)) {
         $errors{$CONN_BROKEN_SKIPPING} += 1;
     } elsif (/Skipping reading because of: .*Failed to establish a new connection: .* Temporary failure in name resolution/) {
         $errors{$TMP_NAME_RESOLUTON_ERRORS} += 1;
+    } elsif (/Failed to resolve .* Temporary failure in name resolution/) {
+        $errors{$TMP_NAME_RESOLUTON_ERRORS} += 1;
     } elsif (/Skipping reading because of: .*Failed to establish a new connection: .* No route to host/) {
         $errors{$NO_ROUTE_TO_HOST_ERRORS} += 1;
     } elsif (/Skipping archive record because there have been zero readings this archive period/) {
