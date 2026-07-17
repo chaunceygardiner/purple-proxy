@@ -7,9 +7,8 @@ import http.server
 import socket
 import threading
 
-import monitor.monitor
-
-from monitor import Logger
+from monitor import log
+from monitor.database import Database
 from enum import Enum
 from dataclasses import dataclass
 from json import dumps
@@ -38,20 +37,20 @@ class Handler(http.server.BaseHTTPRequestHandler):
     """Handle requests in a separate thread."""
     def do_GET(self):
         assert(db_file)
-        assert(log)
         request =  Handler.parse_requestline(self.requestline)
         if request.request_type == RequestType.GET_VERSION:
             self.respond_success(dumps({'version': VERSION}))
             log.info('get-version: %s' % VERSION)
         elif request.request_type == RequestType.GET_EARLIEST_TIMESTAMP:
-            self.respond_success(monitor.monitor.Database(db_file).get_earliest_timestamp_as_json())
+            self.respond_success(Database(db_file).get_earliest_timestamp_as_json())
         elif request.request_type == RequestType.FETCH_CURRENT_RECORD:
-            self.respond_success(monitor.monitor.Database(db_file).fetch_current_reading_as_json())
+            self.respond_success(Database(db_file).fetch_current_reading_as_json())
         elif request.request_type == RequestType.FETCH_TWO_MINUTE_RECORD:
-            self.respond_success(monitor.monitor.Database(db_file).fetch_two_minute_reading_as_json())
+            self.respond_success(Database(db_file).fetch_two_minute_reading_as_json())
         elif request.request_type == RequestType.FETCH_ARCHIVE_RECORDS:
-            assert(request.since_ts)
-            self.respond_success(monitor.monitor.Database(db_file).fetch_archive_readings_as_json(request.since_ts, request.max_ts, request.limit))
+            # since_ts of zero (fetch everything) is legal.
+            assert request.since_ts is not None
+            self.respond_success(Database(db_file).fetch_archive_readings_as_json(request.since_ts, request.max_ts, request.limit))
         else:
             log.info('request_error: %s' % request.error)
             self.respond_error(request.error)
@@ -64,10 +63,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(json.encode('ascii'))
 
     def respond_error(self, error: Optional[str]):
+        # send_error writes a complete response (headers and body).
         self.send_error(404, message=error)
-        self.send_header('Accept', 'application/json')
-        self.send_header('Content-Type', 'application/json')
-        self.end_headers()
 
     @staticmethod
     def parse_args(args_in: str) -> Dict[str, str]:
@@ -147,7 +144,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             request      = request)
 
 db_file: Optional[str] = None
-log: Optional[Logger] = None
 
 def start_server(port: int):
     class ThreadingHTTPServer6(http.server.ThreadingHTTPServer):
@@ -155,15 +151,13 @@ def start_server(port: int):
     with ThreadingHTTPServer6(('::', port), Handler) as server:
         server.serve_forever()
 
-def serve_requests(port: int, db_file_in: str, log_in: Logger):
-    global log
-    log = log_in
+def serve_requests(port: int, db_file_in: str):
     global db_file
     db_file = db_file_in
     daemon = threading.Thread(name='purpleproxy_daemon_server',
                               target=start_server,
                               args=[port])
-    daemon.setDaemon(True) # Set as a daemon so it will be killed once the main thread is dead.
+    daemon.daemon = True # Set as a daemon so it will be killed once the main thread is dead.
     daemon.start()
 
 if __name__ == '__main__':
@@ -188,7 +182,7 @@ if __name__ == '__main__':
 
         assert(options.port)
         assert(options.db_file)
-        log: Logger = Logger('server.py', True)
-        serve_requests(options.port, options.db_file, log)
+        log.reconfigure('server.py', log_to_stdout=True)
+        serve_requests(options.port, options.db_file)
         print('Hit return to exit...', end='')
         _ = input()

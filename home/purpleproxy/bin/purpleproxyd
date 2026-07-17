@@ -1,17 +1,155 @@
 #!/usr/bin/python3
 
-# Copyright (c) 2020-2023 John A Kline
+# Copyright (c) 2020-2026 John A Kline
 # See the file LICENSE for your full rights.
 
-"""main purpleproxy server program
+"""purple-proxy: poll a PurpleAir sensor, sanity check and average the
+readings, archive them in a sqlite database, and serve them over a small
+REST API.  This is the daemon's entry point: it parses the command line and
+the config file, then wires together the database, the REST server and the
+polling service.
 """
 
-import monitor.monitor
+import optparse
+import os
 import sys
 
-PURPLE_PROXY_SERVICE_VERSION = "3.1"
+import configobj
+
+from typing import Optional
+
+from monitor import log
+from monitor.database import Database
+from monitor.service import Service
+
+import server.server
+
+PURPLE_PROXY_VERSION = "4.0"
+
+class CantOpenConfigFile(Exception):
+    pass
+
+class CantParseConfigFile(Exception):
+    pass
+
+def get_configuration(config_file):
+    try:
+        config_dict = configobj.ConfigObj(config_file, file_error=True, encoding='utf-8')
+    except IOError:
+        raise CantOpenConfigFile("Unable to open configuration file %s" % config_file)
+    except configobj.ConfigObjError:
+        raise CantParseConfigFile("Error parsing configuration file %s", config_file)
+
+    return config_dict
+
+def dump_database(db_file: str) -> None:
+    start = Service.utc_now()
+    database: Database = Database(db_file)
+    print('----------------------------')
+    print('* Dumping current reading  *')
+    print('----------------------------')
+    for reading in database.fetch_current_readings():
+        print(reading)
+        print('---')
+    print('----------------------------')
+    print('* Dumping archive readings *')
+    print('----------------------------')
+    for reading in database.fetch_archive_readings():
+        print(reading)
+        print('---')
+    print('Dumped database in %d seconds.' % (Service.utc_now() - start).seconds)
+
+def main() -> None:
+    usage = """%prog [--help] [--dump] [--pidfile <pidfile>] <purpleproxy-conf-file>"""
+    parser: optparse.OptionParser = optparse.OptionParser(usage=usage)
+
+    parser.add_option('-p', '--pidfile', dest='pidfile', action='store',
+                      type=str, default=None,
+                      help='When running as a daemon, pidfile in which to write pid.  Default is None.')
+    parser.add_option('-d', '--dump', dest='dump', action='store_true', default=False,
+                      help='Dump database and then exit. Default is False')
+
+    (options, args) = parser.parse_args()
+
+    if len(args) != 1:
+        parser.error('Usage: [--pidfile <pidfile>] [--dump] <purpleproxy-conf-file>')
+
+    conf_file: str = os.path.abspath(args[0])
+    config_dict    = get_configuration(conf_file)
+
+    debug          : bool           = bool(int(config_dict.get('debug', 0)))
+    log_to_stdout  : bool           = bool(int(config_dict.get('log-to-stdout', 0)))
+    service_name   : str            = config_dict.get('service-name', 'purple-proxy')
+    hostname       : Optional[str]  = config_dict.get('hostname', None)
+    port           : int            = int(config_dict.get('port', 80))
+    server_port    : int            = int(config_dict.get('server-port', 8000))
+    timeout_secs   : int            = int(config_dict.get('timeout-secs', 25))
+    long_read_secs : int            = int(config_dict.get('long-read-secs', 10))
+    pollfreq_secs  : int            = int(config_dict.get('poll-freq-secs', 30))
+    pollfreq_offset: int            = int(config_dict.get('poll-freq-offset', 0))
+    arcint_secs    : int            = int(config_dict.get('archive-interval-secs', 300))
+    gc_interval_secs: int           = int(config_dict.get('gc-interval-secs', 3600))
+    db_file        : Optional[str]  = config_dict.get('database-file', None)
+
+    log.reconfigure(service_name, log_to_stdout=log_to_stdout, debug_mode=debug)
+
+    log.info('debug          : %r'    % debug)
+    log.info('log_to_stdout  : %r'    % log_to_stdout)
+    log.info('conf_file      : %s'    % conf_file)
+    log.info('Version        : %s'    % PURPLE_PROXY_VERSION)
+    log.info('host:port      : %s:%s' % (hostname, port))
+    log.info('server_port    : %s'    % server_port)
+    log.info('timeout_secs   : %d'    % timeout_secs)
+    log.info('long_read_secs : %d'    % long_read_secs)
+    log.info('pollfreq_secs  : %d'    % pollfreq_secs)
+    log.info('pollfreq_offset: %d'    % pollfreq_offset)
+    log.info('arcint_secs    : %d'    % arcint_secs)
+    log.info('gc_interval_secs: %d'   % gc_interval_secs)
+    log.info('db_file        : %s'    % db_file)
+    log.info('service_name   : %s'    % service_name)
+    log.info('pidfile        : %s'    % options.pidfile)
+
+    if options.dump is True:
+        if not db_file:
+            parser.error('database-file must be specified in the config file')
+        assert(db_file)
+        dump_database(db_file)
+        sys.exit(0)
+
+    if not hostname:
+        parser.error('hostname must be specified in the config file')
+
+    if not db_file:
+        parser.error('database-file must be specified in the config file')
+
+    # arcint must be a multilpe of pollfreq
+    if arcint_secs % pollfreq_secs != 0:
+        parser.error('archive-interval-secs must be a multiple of poll-frequency-secs')
+
+    if options.pidfile is not None:
+        pid: str = str(os.getpid())
+        with open(options.pidfile, 'w') as f:
+            f.write(pid+'\n')
+            f.flush()
+            os.fsync(f.fileno())
+
+    # Create database if it does not yet exist.
+    assert(db_file)
+    if not os.path.exists(db_file):
+        log.debug('Creating database: %s' % db_file)
+        database: Database = Database.create(db_file)
+    else:
+        database = Database(db_file)
+
+    assert(hostname)
+    purpleproxy_service = Service(hostname, port, timeout_secs, long_read_secs, pollfreq_secs,
+                                  pollfreq_offset, arcint_secs, gc_interval_secs, database)
+
+    log.debug('Staring server on port %d.' % server_port)
+    server.server.serve_requests(server_port, db_file)
+
+    log.debug('Staring mainloop.')
+    purpleproxy_service.do_loop()
 
 if __name__ == "__main__":
-    def main():
-        monitor.monitor.start(sys.argv)
     main()

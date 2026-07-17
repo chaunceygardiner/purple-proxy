@@ -15,6 +15,7 @@ my $LONG_SENSOR_READS = 'Long Sensor Reads';
 my $SAVED_CURR_READING = 'Saved Curr. Readings';
 my $SAVED_2M_READING = 'Saved 2m Readings';
 my $ARCHIVE_RECORDS_ADDED = 'Archive Records Added';
+my $GC_PASSES = 'Garbage Collections';
 my $CONN_TIMEOUTS_RETRYING = 'Conn. timeouts (retrying)';
 my $READ_TIMEOUTS_RETRYING = 'Read timeouts (retrying)';
 my $CONN_TIMEOUTS_SKIPPING = 'Conn. timeouts (skipped reading)';
@@ -93,6 +94,8 @@ while(defined($_ = <STDIN>)) {
         $counts{$SAVED_2M_READING} += 1;
     } elsif (/Added record/) {
         $counts{$ARCHIVE_RECORDS_ADDED} += 1;
+    } elsif (/Garbage collected \d+ objects in/) {
+        $counts{$GC_PASSES} += 1;
     } elsif (/Could not save archive reading to database/) {
         push @archive_insert_errors, $_;
         $errors{$ARCHIVE_INSERT_ERRORS} += 1;
@@ -180,6 +183,7 @@ while(defined($_ = <STDIN>)) {
              /pollfreq_secs *:/ ||
              /pollfreq_offset *:/ ||
              /arcint_secs *:/ ||
+             /gc_interval_secs *:/ ||
              /outfile *:/ ||
              /arcfile *:/ ||
              /service_name *:/ ||

@@ -1,0 +1,25 @@
+# Copyright (c) 2026 John A Kline
+# See the file LICENSE for your full rights.
+#
+# /home/purpleproxy is replaced with the actual target directory at
+# install time (see the install script).
+
+[Unit]
+Description=PurpleAir proxy daemon
+Documentation=https://github.com/chaunceygardiner/purple-proxy
+Wants=network-online.target
+After=network-online.target rsyslog.service
+
+[Service]
+Type=exec
+User=purpleproxy
+Group=purpleproxy
+WorkingDirectory=/home/purpleproxy/bin
+ExecStart=/usr/bin/python3 /home/purpleproxy/bin/purpleproxyd /home/purpleproxy/purpleproxy.conf
+Restart=on-failure
+RestartSec=10
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

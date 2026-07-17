@@ -1,12 +1,18 @@
 #!/usr/bin/python3
 
-# Copyright (c) 2020 John A Kline
+# Copyright (c) 2020-2026 John A Kline
 # See the file LICENSE for your full rights.
 
 import syslog
 
 class Logger(object):
     def __init__(self, service_name: str, log_to_stdout: bool=False, debug_mode: bool=False):
+        self.reconfigure(service_name, log_to_stdout, debug_mode)
+
+    def reconfigure(self, service_name: str, log_to_stdout: bool=False, debug_mode: bool=False) -> None:
+        """Repoint the logger; called by purpleproxyd once the config file
+        has been read.  The shared `log` object below is mutated in place so
+        every module sees the change."""
         self.service_name = service_name
         self.log_to_stdout = log_to_stdout
         self.debug_mode = debug_mode
@@ -42,3 +48,7 @@ class Logger(object):
 
     def critical(self, msg: str) -> None:
         self.logmsg(syslog.LOG_CRIT, msg)
+
+# The shared logger.  Logs to stdout until purpleproxyd reconfigures it from
+# the config file.
+log: Logger = Logger('monitor', log_to_stdout=True, debug_mode=False)
