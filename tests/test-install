@@ -336,6 +336,24 @@ check 'rsyslog conf still a symlink' test -L "$etc/rsyslog.d/purple-proxy.conf"
 check 'classifier still a symlink' test -L "$etc/logwatch/scripts/services/purple-proxy"
 check 'service.py still a symlink' test -L "$target/bin/monitor/service.py"
 
+# ------------------------------------ optional log tooling absent from /etc
+
+echo "--- rsyslog/logrotate/logwatch not installed"
+
+rm -rf "$etc" "$target" "$tmp/systemctl.state"
+mkdir -p "$etc/systemd/system" "$target"
+reset_log
+out=$(run_install --target "$target" --sensor purple-air -y 2>&1)
+contains 'bare etc: install succeeds' "$out" 'installed and running'
+contains 'bare etc: rsyslog warning printed' "$out" 'rsyslog is not installed'
+check 'bare etc: unit installed' test -f "$etc/systemd/system/purple-proxy.service"
+check 'bare etc: conf generated' test -f "$target/purpleproxy.conf"
+check 'bare etc: rsyslog.d not created' test ! -d "$etc/rsyslog.d"
+check 'bare etc: logrotate.d not created' test ! -d "$etc/logrotate.d"
+check 'bare etc: logwatch not created' test ! -d "$etc/logwatch"
+out=$(run_install --uninstall "$target" 2>&1)
+contains 'bare etc: uninstall succeeds' "$out" 'left in place'
+
 # ---------------------------------------- restart only when something changed
 
 echo "--- service is started/restarted only as needed"
