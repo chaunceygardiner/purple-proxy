@@ -6,7 +6,7 @@
 
 [Unit]
 Description=PurpleAir proxy daemon
-Documentation=https://github.com/chaunceygardiner/purple-proxy
+Documentation=https://chaunceygardiner.github.io/purple-proxy/ https://github.com/chaunceygardiner/purple-proxy
 Wants=network-online.target
 After=network-online.target rsyslog.service
 
