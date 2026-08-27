@@ -1,5 +1,9 @@
 # purple-proxy
 
+[![Read the manual](assets/btn-manual.svg)](https://chaunceygardiner.github.io/purple-proxy/)
+[![Download purple-proxy.zip](assets/btn-download.svg)](https://github.com/chaunceygardiner/purple-proxy/releases/latest/download/purple-proxy.zip)
+[![Report an issue](assets/btn-issue.svg)](https://github.com/chaunceygardiner/purple-proxy/issues)
+
 A proxy and archiver for [PurpleAir](https://www2.purpleair.com/) air quality sensors.
 purple-proxy runs as a daemon that polls a PurpleAir sensor on the local network,
 sanity checks each reading, maintains rolling averages, stores archive records in a
@@ -9,8 +13,11 @@ sqlite database, and serves everything through a small REST API.
 
 * The sensor's processor is easily overwhelmed.  The proxy absorbs client load and
   queries the sensor at a steady, configurable rate.
-* The proxy archives an averaged reading every archive interval.  These archive
-  records can be queried later (for example, to backfill a weather database).
+* The proxy archives an averaged reading every archive interval.  weewx-purple 7.0
+  and later queries these records to fill in the air quality readings for every
+  archive period WeeWX was not running for, so an outage no longer leaves a permanent
+  gap in the database, nor in the graphs drawn from it.  A sensor queried directly
+  keeps no history, so there is nothing to recover.
 * Every reading is sanity checked before it is accepted: field types are verified,
   readings with a clock more than 20 seconds off are rejected, and on dual sensor
   (outdoor) devices, readings where the A and B sensors disagree wildly are rejected.
@@ -57,6 +64,18 @@ proxy stores).  Dual sensor devices include the `_b` suffixed fields for the B s
 * logwatch (optional; a log classifier is installed if logwatch is present).
 
 ## Installation
+
+Get the source, either by cloning the repository:
+
+```sh
+git clone https://github.com/chaunceygardiner/purple-proxy
+```
+
+or by downloading
+[purple-proxy.zip](https://github.com/chaunceygardiner/purple-proxy/releases/latest/download/purple-proxy.zip)
+from the [releases page](https://github.com/chaunceygardiner/purple-proxy/releases) and
+unzipping it.  Either way, the resulting directory (`purple-proxy` when cloned,
+`purple-proxy-master` when unzipped) is `<purple-proxy-src-dir>` below.
 
 ```sh
 sudo apt install rsyslog python3-configobj python3-dateutil python3-requests
@@ -132,6 +151,20 @@ The log is rotated weekly (four rotations kept).  If logwatch is installed, a
 purple-proxy section (readings saved, archive records added, errors categorized)
 appears in the regular logwatch report.
 
+The daemon takes the configuration file as its argument and accepts two options
+(`purpleproxyd --help` lists them).  `--dump` prints the current reading and every
+archive record held in the database, then exits.  That is the entire history — on a
+proxy that has been running for a year or two, a hundred thousand readings or more —
+so page through it:
+
+```sh
+python3 /home/purpleproxy/bin/purpleproxyd --dump \
+    /home/purpleproxy/purpleproxy.conf | less
+```
+
+It only reads the database, so the service can be left running.  (`--pidfile` writes
+the process id to a file; the systemd unit does not use it.)
+
 ## Configuration
 
 `<target-dir>/purpleproxy.conf` is a flat `key = value` file:
@@ -160,7 +193,7 @@ python3 tests/test-monitor.py  # offline tests: database, fetch semantics, REST 
 python3 tests/test-live.py     # live tests against a real sensor (hostname from the conf)
 ```
 
-## Upgrading from version 1
+## Upgrading from a version prior to 2.3
 
 If upgrading from a version prior to `2.3`, run `sudo ./update_db_columns.sh` (in the
 root of this repository) to add the columns that newer versions expect (the BME680

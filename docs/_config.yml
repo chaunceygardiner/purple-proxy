@@ -1,0 +1,46 @@
+title: purple-proxy
+description: >-
+  A proxy and archiver for PurpleAir air quality sensors — it absorbs the
+  client load the sensor's processor cannot take, sanity checks every
+  reading, serves two-minute averages instead of spot readings, and keeps an
+  archive history that a weather database can be backfilled from.
+url: "https://chaunceygardiner.github.io"
+baseurl: "/purple-proxy"
+
+remote_theme: just-the-docs/just-the-docs@v0.12.0
+plugins:
+  - jekyll-remote-theme
+  - jekyll-sitemap
+  # GitHub Pages enables this one by default; naming it explicitly is what
+  # makes .md cross-links resolve in a LOCAL build too.
+  - jekyll-relative-links
+
+search_enabled: true
+heading_anchors: true
+
+aux_links:
+  "purple-proxy on GitHub":
+    - "https://github.com/chaunceygardiner/purple-proxy"
+aux_links_new_tab: true
+
+# External links shown at the bottom of the left sidebar nav, on every page.
+nav_external_links:
+  - title: purple-proxy on GitHub
+    url: https://github.com/chaunceygardiner/purple-proxy
+  - title: Download purple-proxy.zip
+    url: https://github.com/chaunceygardiner/purple-proxy/releases/latest/download/purple-proxy.zip
+
+callouts:
+  note:
+    title: Note
+    color: blue
+  important:
+    title: Important
+    color: red
+  tip:
+    title: Tip
+    color: green
+
+footer_content: >-
+  purple-proxy is Copyright &copy; 2020&ndash;2026 John A Kline and is
+  licensed under the GNU Public License v3.
