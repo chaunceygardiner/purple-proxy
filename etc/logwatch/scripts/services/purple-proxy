@@ -167,12 +167,18 @@ while(defined($_ = <STDIN>)) {
     } elsif (/Skipping reading because of: ChunkedEncodingError.*InvalidChunkLength/) {
         $errors{$CHUNK_ENCODING_ERROR} += 1;
         push @chunk_encoding_errors, $_;
+    # One bad payload writes TWO log lines, always paired: parse_response logs
+    # it -- with the raw payload, which is the useful half -- and re-raises, and
+    # do_loop then logs it again as "Skipping reading because of:".  So the
+    # DETAIL is taken from this branch and the COUNT from the next one, and one
+    # skipped reading is reported once.  Do NOT add a count here; that is a
+    # double count, not a fix (it was tried, and reported every bad payload
+    # twice).
     } elsif (/parse_response: .* raised exception JSONDecodeError/) {
-        $errors{$JSON_DECODING_ERROR} += 1;
         push @json_decoding_errors, $_;
+    # The count for the pair; its detail was itemized by the branch above.
     } elsif (/Skipping reading because of: JSONDecodeError/) {
         $errors{$JSON_DECODING_ERROR} += 1;
-        push @json_decoding_errors, $_;
     } elsif (/Skipping two_minute record because there have been zero readings this two minute period\./) {
         $errors{$SKIPPED_2M_RECORDS} += 1;
     } elsif (/host:port *:/ ||
