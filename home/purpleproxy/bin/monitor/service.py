@@ -389,10 +389,13 @@ class Service(object):
                         log.debug('Saved archive reading in %d seconds.' % (Service.utc_now() - start).seconds)
                         log.info('Added record %s to archive (%d samples).'
                             % (Service.datetime_display(avg_reading.time_of_reading), len(archive_readings)))
-                        # Reset archive_readings for new archive cycle.
-                        archive_readings.clear()
                     except Exception as e:
                         log.critical('Could not save archive reading to database: %s: %s' % (self.database, e))
+                    # Cleared whether or not the save succeeded: these samples
+                    # belong to the period just closed, and carrying them into
+                    # the next one would silently fold two periods into one
+                    # average on top of the record already lost.
+                    archive_readings.clear()
 
             # Periodically collect cyclic garbage, but only on a non-archive
             # poll: the loop is about to go idle, and the pause never stacks

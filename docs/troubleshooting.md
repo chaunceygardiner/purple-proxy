@@ -100,6 +100,16 @@ written.  This is intentional: the period genuinely has no data, and writing
 an invented value would be worse than leaving the hole.  Clients that
 backfill from the archive will leave that period empty too.
 
+```
+Could not save archive reading to database:
+```
+
+A record that cannot be saved is lost rather than retried; the failure is
+logged at critical level and the daemon keeps running.  For an archive record
+that is deliberate: the period's readings are discarded with it, so the next
+record covers its own period only, instead of quietly averaging two periods
+into one.
+
 If gaps are frequent, the cause is upstream — see the two sections above.
 
 ## Nothing answers on the REST port
