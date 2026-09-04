@@ -24,7 +24,7 @@ from monitor.service import Service
 
 import server.server
 
-PURPLE_PROXY_VERSION = "4.0"
+PURPLE_PROXY_VERSION = "4.1"
 
 class CantOpenConfigFile(Exception):
     pass

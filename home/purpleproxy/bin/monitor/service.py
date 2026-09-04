@@ -11,6 +11,7 @@ records to the database.
 import calendar
 import copy
 import gc
+import socket
 import time
 
 import requests
@@ -43,11 +44,25 @@ class Service(object):
         log.debug('Service created')
 
     @staticmethod
+    def resolve_hostname(hostname: str) -> str:
+        """Return the IPv4 address hostname resolves to.  An address literal
+        is returned unchanged.  Raises socket.gaierror when the name does
+        not resolve."""
+        return socket.gethostbyname(hostname)
+
+    @staticmethod
     def collect_data(session: requests.Session, hostname: str, port:int, timeout_secs: int, long_read_secs: int) -> Reading:
         # fetch data
         try:
             start_time = time.time()
-            response: requests.Response = session.get(url="http://%s:%s/json?live=true" % (hostname, port), timeout=timeout_secs)
+            # The sensor is addressed by IP, resolved afresh on every poll, so
+            # that the Host header it sees is its own address.  A PurpleAir
+            # that has lost its WAN connection drops into setup mode and
+            # answers a request for any other Host with a redirect to its
+            # PurpleAir-xxxx.lan name, which nothing on the LAN can resolve;
+            # addressed by IP it still answers with the reading.
+            address: str = Service.resolve_hostname(hostname)
+            response: requests.Response = session.get(url="http://%s:%s/json?live=true" % (address, port), timeout=timeout_secs)
             response.raise_for_status()
             elapsed_time = time.time() - start_time
             log.debug('collect_data: elapsed time: %f seconds.' % elapsed_time)

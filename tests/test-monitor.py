@@ -14,6 +14,7 @@ Exits non-zero if any test fails.
 """
 
 import os
+import socket
 import sys
 import tempfile
 
@@ -131,6 +132,44 @@ req = srv.Handler.parse_requestline('GET /json HTTP/1.1')
 check('/json is fetch-two-minute', req.request_type == srv.RequestType.FETCH_TWO_MINUTE_RECORD)
 req = srv.Handler.parse_requestline('GET /nonsense HTTP/1.1')
 check('unknown command is an error', req.request_type == srv.RequestType.ERROR)
+
+# --- collect_data addresses the sensor by IP ------------------------------
+# A PurpleAir in setup mode redirects any request whose Host header is not
+# its own address, so the daemon must resolve hostname itself and fetch by IP.
+
+class _Stop(Exception):
+    pass
+
+class _RecordingSession(object):
+    """Stands in for requests.Session: records the url and aborts the fetch."""
+    def __init__(self) -> None:
+        self.url = None
+    def get(self, url, timeout):
+        self.url = url
+        raise _Stop()
+
+sess = _RecordingSession()
+try:
+    Service.collect_data(sess, 'localhost', 80, 5, 10)
+except _Stop:
+    pass
+check('collect_data fetches by IP address, not by name',
+      sess.url == 'http://127.0.0.1:80/json?live=true', repr(sess.url))
+
+sess = _RecordingSession()
+try:
+    Service.collect_data(sess, '192.0.2.1', 8080, 5, 10)
+except _Stop:
+    pass
+check('collect_data passes an IP literal through unchanged',
+      sess.url == 'http://192.0.2.1:8080/json?live=true', repr(sess.url))
+
+raised = False
+try:
+    Service.resolve_hostname('no-such-host.invalid')
+except socket.gaierror:
+    raised = True
+check('unresolvable hostname raises socket.gaierror', raised)
 
 os.unlink(tmp.name)
 print()

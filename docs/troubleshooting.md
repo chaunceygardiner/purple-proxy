@@ -60,11 +60,15 @@ None of these stop the daemon.  Each is logged, the reading is skipped, the
 requests session is reset, and the next poll tries again.
 
 {: .note }
-A PurpleAir that has lost its WAN connection can drop into setup mode and
-serve a page that is not the reading JSON.  The logwatch classifier counts
-this case separately (`WAN down, PA in setup mode`) precisely because it
-looks alarming in the log but means only that the sensor wants its network
-back.
+A PurpleAir that has lost its WAN connection drops into setup mode.  In that
+mode it answers a request addressed by DNS name with a redirect to its own
+`PurpleAir-xxxx.lan` name, which nothing on the LAN can resolve, and the
+reading is lost (`Failed to resolve 'purpleair-xxxx.lan'` in the log; `WAN
+down, PA in setup mode` in the logwatch report).  Since 4.1 the daemon
+resolves `hostname` itself and fetches by IP address, which the sensor
+answers normally even in setup mode, so this failure should no longer
+appear.  If it does, the sensor is redirecting a request addressed by IP;
+please report it.
 
 ## Readings arrive but are rejected
 

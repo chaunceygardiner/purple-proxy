@@ -81,6 +81,15 @@ The DNS name or IP address of the PurpleAir sensor on your network.  This is
 the one setting with no useful default; the installer asks for it.  The
 daemon fetches `http://<hostname>:<port>/json?live=true`.
 
+A name is resolved to its IPv4 address on every poll and the sensor is
+fetched by that address.  This is deliberate: a PurpleAir that has lost its
+WAN connection answers a request addressed by name with a redirect to its own
+`PurpleAir-xxxx.lan` name, which nothing on the LAN can resolve, while a
+request addressed by IP gets the reading (see
+[Troubleshooting](troubleshooting.md#no-readings-are-arriving)).  Resolving
+on every poll also means a sensor whose address changes is followed within
+one poll.
+
 ### port
 
 The sensor's HTTP port.  PurpleAir devices serve on 80 and there is rarely a
