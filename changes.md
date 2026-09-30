@@ -1,5 +1,15 @@
 # purple-proxy change history
 
+## 4.1.1 (pending)
+
+- The manual's troubleshooting page covers reads that time out every two
+  minutes or so.  A PurpleAir also registered to send its readings to a
+  third-party server, such as Weather Underground, stops answering on the
+  LAN for about 35 seconds whenever a send to a failing server waits for
+  its answer, which costs about one poll in four.  The page says how to
+  confirm it from the sensor's own page and `/json`, and that removing or
+  correcting the upload is the fix, not a longer `timeout-secs`.
+
 ## 4.1 (09/03/2026)
 
 - The sensor is fetched by IP address rather than by name.  A PurpleAir that

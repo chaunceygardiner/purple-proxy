@@ -70,6 +70,51 @@ answers normally even in setup mode, so this failure should no longer
 appear.  If it does, the sensor is redirecting a request addressed by IP;
 please report it.
 
+## Reads time out every couple of minutes
+
+```
+Skipping reading because of: ReadTimeout(ReadTimeoutError("HTTPConnectionPool(host='<address>', port=80): Read timed out. (read timeout=25)"))
+```
+
+If these arrive in a steady rhythm, every two minutes or so, with good
+readings in between, look first at where else the sensor sends its data.
+With the default 30-second `poll-freq-secs` the rhythm costs about one
+poll in four, and every proxy polling that sensor sees the same pattern at
+the same moments.
+
+A PurpleAir can be registered to send its readings to a third-party server
+as well as to PurpleAir, Weather Underground for example.  It sends on
+a two-minute cycle, and while a send is waiting for its answer, the
+sensor's web server does not answer on the LAN.  When that server is slow
+or failing, each send waits out the sensor's own limit, about 35 seconds,
+and any poll that lands in that window times out.  Raising `timeout-secs`
+is not the fix: the window is longer than the 25-second default, and
+outlasting it would take a timeout longer than `poll-freq-secs`.
+
+To confirm it:
+
+* The sensor's own page, `http://<sensor-hostname>/`, shows a light for
+  each place the sensor sends to.  A third-party target is labeled `3RD`.
+* Its `/json` has a `status_N` field for each target; `3` is a target
+  whose sends are failing.  `httpsends` and `httpsuccess` count the sends
+  and the ones that succeeded, so a failing target pulls `httpsuccess`
+  well below `httpsends`: on sensors whose third-party target failed on
+  every send, `httpsuccess` sat at about half of `httpsends`.
+* Time the sensor directly for a few minutes.  It usually answers in a
+  fraction of a second; one held up by a failing upload goes quiet for
+  half a minute every two minutes:
+
+  ```sh
+  for i in $(seq 90); do curl -s -o /dev/null -m 60 -w '%{time_total}\n' 'http://<sensor-hostname>/json'; sleep 2; done
+  ```
+
+To fix it, remove the third-party upload from the sensor's registration
+(the Registration & Map link on the sensor's page leads to it), or correct
+it if you still want the data sent there.  The sensor picks up the change
+from PurpleAir; check that the `3RD` light and its `status_N` field are
+gone.  If they are still there a few minutes later, submit the
+registration again.  The timeouts stop with the next upload cycle.
+
 ## Readings arrive but are rejected
 
 ```
